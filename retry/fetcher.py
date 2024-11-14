@@ -8,8 +8,10 @@ from .utils.rate_limiter import RateLimiter
 from playwright.async_api import async_playwright
 from .logger import logger
 
+logger.name = 'fetcher'
 
-class URLFetcher:
+
+class Fetcher:
     def __init__(self, proxies=None, user_agents=None, rate_limit=1, cache=None, authentication: Authentication = None, session_manager=None):
         self.proxies = proxies or []
         self.user_agents = user_agents or [self.default_user_agent()]
@@ -32,13 +34,14 @@ class URLFetcher:
                     timeout=10
                 ) as response:
                     response.raise_for_status()
+                    content_type = response.headers.get('Content-Type', '')
                     content = await response.text()
 
                     if self.cache:
-                        self.cache.set(url, content)
+                       await self.cache.set(url,(content, content_type))
 
-                    return content
-        except aiohttp.ClientError as e:
+                    return content, content_type
+        except Exception as e:
             logger.error(f"HTTP error for URL {url}: {e}")
             if retries > 0:
                 await asyncio.sleep(2 ** (3 - retries))
@@ -59,12 +62,14 @@ class URLFetcher:
                         timeout=10
                     ) as response:
                         response.raise_for_status()
+                        content_type = response.headers.get('Content-Type', '')
+
                         content = await response.text()
 
                         if self.cache:
                             self.cache.set(url, content)
 
-                        return content
+                        return content,content_type
             except aiohttp.ClientError as e:
                 logger.error(f"HTTP error for URL {url}: {e}")
                 if retries > 0:
@@ -77,7 +82,6 @@ class URLFetcher:
         cache = await self._pre_flight(url)
         if cache:
             return cache
-
         try:
 
             async with async_playwright() as p:
@@ -98,9 +102,9 @@ class URLFetcher:
                 await browser.close()
 
                 if self.cache:
-                    self.cache.set(url, content)
+                   await self.cache.set(url, content)
 
-                return content
+                return content, 'text/html'
         except Exception as e:
             logger.error(f"Error fetching URL with Playwright {url}: {e}")
             if retries > 0:
@@ -112,7 +116,7 @@ class URLFetcher:
     async def _pre_flight(self, url) -> str|None:
         if self.cache and self.cache.contains(url):
             logger.info(f"Cache hit for URL: {url}")
-            return self.cache.get(url)
+            return await self.cache.get(url)
 
         await self.rate_limiter.wait()
 
@@ -120,9 +124,13 @@ class URLFetcher:
 
         if self.authentication:
             auth = self.authentication.get_auth()
-            if auth:
+        if auth:
+            if isinstance(auth, aiohttp.BasicAuth):
+                auth_header = auth.encode()
+                self.headers.update({'Authorization': auth_header})
+            elif isinstance(auth, dict):
                 self.headers.update(auth)
-
+                
         self.proxy = random.choice(self.proxies) if self.proxies else None
 
         return None

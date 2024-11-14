@@ -13,11 +13,13 @@ class SessionManager:
         self.headers = headers or {}
         self.cookies = cookies or {}
         self.auth = auth
-        self.connector = connector or TCPConnector(ssl=False)
+        self.connector = connector
         self.proxy = proxy
         self.session = None  # Initialize session to None
  
     async def __aenter__(self):
+        if self.connector is None:
+            self.connector = TCPConnector(ssl=False)
         self.session = ClientSession(
             headers=self.headers,
             cookies=self.cookies,
@@ -32,6 +34,8 @@ class SessionManager:
         
     async def open(self):
         if not self.session:
+            if self.connector is None:
+                self.connector = TCPConnector(ssl=False)
             self.session = ClientSession(
                 headers=self.headers,
                 cookies=self.cookies,
