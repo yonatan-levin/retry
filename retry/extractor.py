@@ -4,6 +4,7 @@ import spacy
 from textblob import TextBlob
 from spacy.matcher import Matcher
 
+logger.name = 'extractor'
 
 class ContentExtractor:
     def __init__(self, parser, rules, match_patterns: list[dict] = None):
@@ -17,18 +18,21 @@ class ContentExtractor:
                 self.matcher.add(key, pattern)
 
     def extract(self):
+  
         data = {}
         for key, rule in self.rules.items():
-            extractor_type = rule.get('extractor_type', 'default')
-
-            if extractor_type == 'nlp':
-                data[key] = self._extract_nlp(rule)
-            else:
-                data[key] = self._extract_default(rule)
-
-            logger.debug(f"Extracted {key}: {data[key]}")
+            try:     
+                extractor_type = rule.get('extractor_type', 'default')
+                if extractor_type == 'nlp':
+                        data[key] = self._extract_nlp(rule)
+                else:
+                        data[key] = self._extract_default(rule)
+                logger.debug(f"Extracted {key}: {data[key]}")
+            except Exception as e:
+                logger.error(f"Error extracting data: {e}")
+                data[key] = None
         return data
-
+    
     def _extract_default(self, rule):
         data = {}
 
@@ -102,19 +106,18 @@ class ContentExtractor:
             return keywords
 
         elif nlp_task == 'sentiment':
-            blob = self._analyze_sentiment(text)
-            return blob
+                blob = self._analyze_sentiment(text)
+                return blob        
+                    
+        # elif nlp_task == 'summary':
+        #     # For now, we'll return None
+        #     return None
 
-        elif nlp_task == 'summary':
-            # Need to find a good summary algorithm
-            # For now, we'll return None
-            return None
-
-        elif nlp_task == 'classification':
-            # Implement text classification using spaCy's text categorizer
-            # Requires training a custom model
-            # For now, we'll return None
-            return None
+        # elif nlp_task == 'classification':
+        #     # Implement text classification using spaCy's text categorizer
+        #     # Requires training a custom model
+        #     # For now, we'll return None
+        #     return None
 
         elif nlp_task == 'match_patterns':
             extracted_data = self._match_patterns(doc)
@@ -122,7 +125,7 @@ class ContentExtractor:
         else:
             return None
 
-    def _analyze_sentiment(text):
+    def _analyze_sentiment(self,text):
         # Create a TextBlob object
         blob = TextBlob(text)
 
@@ -133,7 +136,7 @@ class ContentExtractor:
         subjectivity = blob.sentiment.subjectivity
 
         # Determine sentiment label
-        if polarity > 0:
+        if polarity >= 0.75:
             sentiment = "Positive"
         elif polarity < 0:
             sentiment = "Negative"
