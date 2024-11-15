@@ -124,5 +124,5 @@ def test_parse_content_invalid_html():
 def test_select_invalid_selector(sample_html_content):
     parser = ContentParser(sample_html_content, content_type='text/html')
     with pytest.raises(ValueError) as exc_info:
-        parser.select('invalid_selector')
+        parser.select('h1.title', 'invalid_selector')
     assert 'Unsupported selector type' in str(exc_info.value)
