@@ -3,9 +3,11 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest_asyncio
 from yarl import URL
+from retry.config.fetcher_config import FetcherConfig
 from retry.fetcher import Fetcher
 from retry.utils.authentication import Authentication
 from aioresponses import CallbackResult, aioresponses
+from retry.utils.cache import SimpleCache
 
 
 @pytest.fixture()
@@ -301,3 +303,27 @@ async def test_fetch_with_playwright_retry(url_fetcher, sample_url, sample_conte
             assert content_type == 'text/html'
             expected_calls = initial_retries + 1
             assert call_count == expected_calls, f"Expected {expected_calls} attempts, but got {call_count}"
+
+@pytest.mark.asyncio
+async def test_fetch_success_with_fetcher_config(sample_url, sample_content):
+    # Create a FetcherConfig instance
+    fetcher_config = FetcherConfig(
+        proxies=['http://proxy1.com'],
+        user_agents=['UserAgent1', 'UserAgent2'],
+        rate_limit=1,
+        cache=SimpleCache()
+    )
+
+    # Create a Fetcher instance with the FetcherConfig
+    fetcher = Fetcher(fetcher_config=fetcher_config)
+
+    # Use aioresponses to mock the network response
+    with aioresponses() as m:
+        m.get(sample_url, status=200, body=sample_content, headers={'Content-Type': 'text/html'})
+
+        # Fetch the content
+        content, content_type = await fetcher.fetch(sample_url)
+
+        # Assert that the content was fetched successfully
+        assert content == sample_content
+        assert content_type == 'text/html'

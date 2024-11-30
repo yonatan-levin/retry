@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from io import StringIO
 import csv
 from retry.formatter import OutputFormatter
-
+ 
 @pytest.fixture
 def sample_data_dict():
     return {

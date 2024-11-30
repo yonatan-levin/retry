@@ -2,9 +2,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from retry.parser import ContentParser
 from retry.extractor import ContentExtractor
-from bs4 import BeautifulSoup
 import spacy
-from textblob import TextBlob
+
 
 @pytest.fixture
 def sample_html_content():
@@ -32,6 +31,16 @@ def sample_text_content():
     return "Apple is looking at buying U.K. startup for $1 billion. This is great news!"
 
 @pytest.fixture
+def sample_json_content():
+    return {
+        "items": [
+            {"name": "Item 1", "price": 10},
+            {"name": "Item 2", "price": 20},
+            {"name": "Item 3", "price": 30}
+        ]
+    }
+
+@pytest.fixture
 def logger():
     with patch.object('retry.extractor.logger', 'error', MagicMock()) as mock_logger:
         yield mock_logger
@@ -40,6 +49,12 @@ def parser(sample_html_content):
     # Assuming ContentParser has a method get_text()
     parser = ContentParser(sample_html_content, content_type='text/html')
     return parser
+
+@pytest.fixture
+def parser_json(sample_json_content):
+    parser = ContentParser(sample_json_content, content_type='application/json')
+    return parser
+
 
 @pytest.fixture
 def nlp():
@@ -181,7 +196,7 @@ def test_extract_json_content():
         ]
     }
     parser = MagicMock()
-    parser.select.return_value = sample_json_content['items']
+    parser.select_json.return_value = sample_json_content['items']
     rules = {
         'item_names': {
             'selector': 'items',
@@ -326,7 +341,7 @@ def test_extract_attribute_missing(parser):
     }
     extractor = ContentExtractor(parser, rules)
     data = extractor.extract()
-    assert data['missing_attribute'] == None
+    assert data['missing_attribute'] == ''
 
 def test_extract_json_with_regex():
     sample_json_content = {
@@ -337,7 +352,7 @@ def test_extract_json_with_regex():
         ]
     }
     parser = MagicMock()
-    parser.select.return_value = sample_json_content['emails']
+    parser.select_json.return_value = sample_json_content['emails']
     rules = {
         'emails': {
             'selector': 'emails',
@@ -429,8 +444,8 @@ def test_extract_nlp_match_patterns_no_matches(sample_text_content):
     assert data['no_matches'] == {}
 
 def test_extract_default_from_json(parser):
-    with patch.object(parser, 'select', return_value=[{'name': 'Item 1'}, {'name': 'Item 2'}]):
-        parser.select.return_value = [{'name': 'Item 1'}, {'name': 'Item 2'}]
+    with patch.object(parser, 'select_json', return_value=[{'name': 'Item 1'}, {'name': 'Item 2'}]):
+        parser.select_json.return_value = [{'name': 'Item 1'}, {'name': 'Item 2'}]
         rules = {
             'item_names': {
                 'selector': 'items',
@@ -443,3 +458,28 @@ def test_extract_default_from_json(parser):
         data = extractor.extract()
         assert data['item_names'] == ['Item 1', 'Item 2']
  
+def test_nested_rule_object(parser):
+    rules = {
+        'nested_rule': {
+            'selector': 'div#main',
+            'type': 'css',
+            'fields': {
+                'title': {
+                    'selector': 'h1.title',
+                    'type': 'css',
+                    'multiple': False
+                },
+                'content': {
+                    'selector': 'p.content',
+                    'type': 'css',
+                    'multiple': False
+                }
+            }
+        }
+    }
+    extractor = ContentExtractor(parser, rules)
+    data = extractor.extract()
+    assert data['nested_rule'] == {
+        'title': 'Hello World',
+        'content': 'This is a test page.'
+    }

@@ -1,9 +1,9 @@
 import hashlib
 import re
-import regex
 import spacy
 from spacy.util import compile_infix_regex
 from spacy.tokens import Span
+from retry.config.cleaner_config import CleanerConfig
 from .constants import UNWANTED_PATTERNS, CUSTOM_INFIXES
 from .logger import logger
 
@@ -11,7 +11,17 @@ logger.name = 'cleaner'
 
 
 class Cleaner:
-    def __init__(self, additional_patterns=None, replace_defaults=False, **kwargs):
+    def __init__(self, 
+                additional_patterns=None, 
+                replace_defaults=False, 
+                custom_nlp_components=None, 
+                flags=0, 
+                cleaner_config: CleanerConfig = None):
+        if cleaner_config:
+            additional_patterns = cleaner_config.additional_patterns or additional_patterns
+            replace_defaults = cleaner_config.replace_defaults or replace_defaults
+            custom_nlp_components = cleaner_config.custom_nlp_components or custom_nlp_components
+            flags = cleaner_config.flags or flags
 
         self.nlp = spacy.load('en_core_web_sm')
         self.unwanted_patterns = UNWANTED_PATTERNS
@@ -22,13 +32,13 @@ class Cleaner:
         if not Span.has_extension('is_unwanted'):
             Span.set_extension('is_unwanted', default=False)
 
-        if 'custom_nlp_components' in kwargs:
-            for component, before in kwargs['custom_nlp_components']:
+        if custom_nlp_components:
+            for component, before in custom_nlp_components.items():
                 self.nlp.add_pipe(component, before=before)
 
         if additional_patterns:
             self.add_unwanted_pattern(
-                additional_patterns, replace_defaults=replace_defaults)
+                additional_patterns, flags=flags, replace_defaults=replace_defaults)
 
     def clean(self, data, case_sensitive=False):
         cleaned_data = {}
@@ -61,7 +71,7 @@ class Cleaner:
                 cleaned_data[key] = value
         return cleaned_data
 
-    def add_unwanted_pattern(self, pattern_str, flags=0, ignorecase=re.IGNORECASE, replace_defaults=False):
+    def add_unwanted_pattern(self, pattern_str, flags=0, replace_defaults=False):
         """
         Compiles the given pattern string and adds it to the unwanted patterns list.
 
@@ -72,7 +82,7 @@ class Cleaner:
         try:
             if replace_defaults:
                 self.unwanted_patterns = re.compile(
-                    pattern_str, flags, ignorecase)
+                    pattern_str, flags)
                 return
 
             compiled_pattern = re.compile(pattern_str, flags)

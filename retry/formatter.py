@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 from io import StringIO
 from typing import Any, Dict, List, Union
 
-
 class OutputFormatter:
     def format(self, data, format_type='json') -> str:
         if format_type == 'json':

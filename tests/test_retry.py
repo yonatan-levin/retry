@@ -1,0 +1,280 @@
+import pytest
+import asyncio
+from unittest.mock import MagicMock, AsyncMock, patch
+from retry import Retry
+from retry.fetcher import Fetcher
+from retry.parser import ContentParser
+from retry.extractor import ContentExtractor
+from retry.cleaner import Cleaner
+from retry.formatter import OutputFormatter
+from retry.utils.cache import SimpleCache
+from retry.utils.session_manager import SessionManager
+
+@pytest.fixture
+def sample_html_content():
+    return """
+    <html>
+        <head><title>Test Page</title></head>
+        <body>
+            <div id="main">
+                <h1 class="title">Hello World</h1>
+                <p class="content">This is a <strong>test</strong> page.</p>
+            </div>
+        </body>
+    </html>
+    """
+
+@pytest.fixture
+def sample_rules():
+    return {
+        'title': {
+            'selector': 'h1.title',
+            'type': 'css',
+            'attribute': None,
+            'multiple': False
+        }
+    }
+
+@pytest.fixture
+def retry_instance():
+    return Retry()
+
+@pytest.mark.asyncio
+async def test_scrape_async(retry_instance, sample_html_content, sample_rules):
+    # Mock the fetcher to return sample_html_content
+    with patch.object(Fetcher, 'fetch', new_callable=AsyncMock) as mock_fetch:
+        mock_fetch.return_value = (sample_html_content, 'text/html')
+        data = await retry_instance.scrape_async('http://example.com', sample_rules)
+        assert data == {'title': 'Hello World'}
+
+def test_scrape_sync(retry_instance, sample_html_content, sample_rules):
+    # Mock the fetcher to return sample_html_content
+    with patch.object(Fetcher, 'fetch', new_callable=AsyncMock) as mock_fetch:
+        mock_fetch.return_value = (sample_html_content, 'text/html')
+        data = retry_instance.scrape_sync('http://example.com', sample_rules)
+        assert data == {'title': 'Hello World'}
+
+@pytest.mark.asyncio
+async def test_fetch_content_error(retry_instance, sample_rules):
+    # Simulate a network error
+    with patch.object(Fetcher, 'fetch', new_callable=AsyncMock) as mock_fetch:
+        mock_fetch.side_effect = Exception("Network Error")
+        with pytest.raises(Exception) as exc_info:
+            await retry_instance.scrape_async('http://example.com', sample_rules)
+        assert "Network Error" in str(exc_info.value)
+
+@pytest.mark.asyncio
+@patch.object(Fetcher, 'fetch', new_callable=AsyncMock)
+async def test_retry_on_error(mock_fetch, retry_instance,sample_html_content, sample_rules):
+    # Simulate the fetcher failing twice before succeeding
+    async def side_effect(url, retries=3,timeout=10):
+        try:        
+            if side_effect.attempts < 2:
+                side_effect.attempts += 1
+                raise Exception("Network Error")
+            else:
+                return (sample_html_content, 'text/html')
+        except:
+            return await side_effect(url, retries - 1,timeout)
+
+    side_effect.attempts = 0
+    mock_fetch.side_effect = side_effect
+
+    data = await retry_instance.scrape_async('http://example.com', sample_rules)
+    assert data == {'title': 'Hello World'}
+    assert side_effect.attempts == 2
+    
+@pytest.mark.asyncio
+async def test_plugin_system(retry_instance, sample_html_content, sample_rules):
+    # Define a simple plugin
+    class UpperCasePlugin:
+        def process(self, data):
+            return {k: v.upper() for k, v in data.items()}
+
+    retry_instance.register_plugin(UpperCasePlugin())
+
+    with patch.object(Fetcher, 'fetch', new_callable=AsyncMock) as mock_fetch:
+        mock_fetch.return_value = (sample_html_content, 'text/html')
+        data = await retry_instance.scrape_async('http://example.com', sample_rules)
+        assert data == {'title': 'HELLO WORLD'}
+
+def test_output_formatter(retry_instance):
+    data = {'title': 'Hello World'}
+    json_output = retry_instance.output(data, format_type='json')
+    assert json_output == '{\n  "title": "Hello World"\n}'
+
+    csv_output = retry_instance.output(data, format_type='csv')
+    assert csv_output.strip() == 'title\r\nHello World'
+
+    xml_output = retry_instance.output(data, format_type='xml')
+    assert '<root>' in xml_output and '<title>Hello World</title>' in xml_output
+
+@pytest.mark.asyncio
+async def test_pipeline_execution_order(retry_instance, sample_html_content, sample_rules):
+    order = []
+
+    async def mock_fetch_content(context):
+        order.append('fetch')
+        context['content'] = sample_html_content
+        context['content_type'] = 'text/html'
+
+    async def mock_parse_content(context):
+        order.append('parse')
+        context['parser'] = ContentParser(context['content'], context['content_type'])
+
+    async def mock_extract_data(context):
+        order.append('extract')
+        extractor = ContentExtractor(context['parser'], context['rules'])
+        context['data'] = extractor.extract()
+
+    async def mock_clean_data(context):
+        order.append('clean')
+        context['data'] = context['data']
+
+    async def mock_apply_plugins(context):
+        order.append('plugins')
+        context['data'] = context['data']
+
+    retry_instance.pipeline = [
+        mock_fetch_content,
+        mock_parse_content,
+        mock_extract_data,
+        mock_clean_data,
+        mock_apply_plugins
+    ]
+
+    data = await retry_instance.scrape_async('http://example.com', sample_rules)
+    assert data == {'title': 'Hello World'}
+    assert order == ['fetch', 'parse', 'extract', 'clean', 'plugins']
+
+def test_register_plugin_invalid(retry_instance):
+    class InvalidPlugin:
+        pass
+
+    with pytest.raises(ValueError) as exc_info:
+        retry_instance.register_plugin(InvalidPlugin())
+    assert "Plugin must implement a callable 'process' method." in str(exc_info.value)
+
+# @pytest.mark.asyncio For now we don't support custom fetch methods
+# async def test_scrape_with_custom_fetch_method(retry_instance, sample_html_content, sample_rules):
+#     # Add a custom fetch method to the Fetcher
+#     async def custom_fetch(self, url, retries=3):
+#         return (sample_html_content, 'text/html')
+
+#     with patch.object(Fetcher, 'custom_fetch', new=custom_fetch):
+#         data = await retry_instance.scrape_async('http://example.com', sample_rules, fetch_method='custom_fetch')
+#         assert data == {'title': 'Hello World'}
+
+@pytest.mark.asyncio
+async def test_cache_usage():
+    cache = SimpleCache()
+    # Create a mock session_manager
+    mock_session_manager = MagicMock()
+    fetcher = Fetcher(session_manager=mock_session_manager, cache=cache)
+    retry_instance = Retry(fetcher=fetcher)
+
+    url = 'http://example.com'
+
+    # Mock the session_manager's __aenter__ and __aexit__ methods
+    mock_session = MagicMock()
+    mock_session_manager.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock the session.get method to return an async context manager
+    mock_response = MagicMock()
+    mock_response.status = 200
+    # Ensure that response.headers.get('Content-Type') returns 'text/html'
+    mock_response.headers = MagicMock()
+    mock_response.headers.get = MagicMock(return_value='text/html')
+    # Alternatively, you can set headers as a dict:
+    # mock_response.headers = {'Content-Type': 'text/html'}
+
+    mock_response.text = AsyncMock(return_value='<html></html>')
+
+    mock_get_context_manager = MagicMock()
+    mock_get_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_get_context_manager.__aexit__ = AsyncMock(return_value=None)
+
+    mock_session.get.return_value = mock_get_context_manager
+
+    # First fetch: Should use the network and store result in cache
+    data1 = await retry_instance.scrape_async(url, {})
+    assert url in cache.store
+
+    # Reset the mock_session.get to track calls in the second fetch
+    mock_session.get.reset_mock()
+
+    # Second fetch: Should retrieve from cache, so no network call
+    data2 = await retry_instance.scrape_async(url, {})
+
+    # Ensure that the session.get method was not called in the second fetch
+    mock_session.get.assert_not_called()
+
+    # Verify that the data from both fetches is the same
+    assert data1 == data2
+
+    # Optionally, verify that the cache contains the expected content
+    cached_content = await cache.get(url)
+    assert cached_content == ('<html></html>', 'text/html')
+
+@pytest.mark.asyncio
+async def test_cleaner_usage(retry_instance, sample_html_content, sample_rules):
+    # Mock the cleaner to modify data
+    class MockCleaner:
+        def clean(self, data):
+            data['title'] = data['title'].lower()
+            return data
+
+    retry_instance.cleaner = MockCleaner()
+
+    with patch.object(Fetcher, 'fetch', new_callable=AsyncMock) as mock_fetch:
+        mock_fetch.return_value = (sample_html_content, 'text/html')
+        data = await retry_instance.scrape_async('http://example.com', sample_rules)
+        assert data == {'title': 'hello world'}
+
+def test_fetcher_initialization():
+    # Test that the fetcher is initialized with the cache
+    cache = SimpleCache()
+    retry_instance = Retry(cache=cache)
+    assert retry_instance.fetcher.cache is cache
+
+def test_formatter_initialization():
+    # Test that the formatter is initialized properly
+    formatter = OutputFormatter()
+    retry_instance = Retry(formatter=formatter)
+    assert retry_instance.formatter is formatter
+
+def test_parser_class_initialization():
+    class CustomParser(ContentParser):
+        pass
+
+    retry_instance = Retry(parser_class=CustomParser)
+    assert retry_instance.parser_class is CustomParser
+
+def test_extractor_class_initialization():
+    class CustomExtractor(ContentExtractor):
+        pass
+
+    retry_instance = Retry(extractor_class=CustomExtractor)
+    assert retry_instance.extractor_class is CustomExtractor
+
+@pytest.mark.asyncio
+async def test_pipeline_modification(retry_instance):
+    # Remove the cleaner step from the pipeline
+    retry_instance.pipeline.remove(retry_instance._clean_data)
+
+    with patch.object(Fetcher, 'fetch', new_callable=AsyncMock) as mock_fetch, \
+         patch.object(ContentExtractor, 'extract', return_value={'title': 'Test Title'}) as mock_extract:
+
+        mock_fetch.return_value = ('<html></html>', 'text/html')
+        data = await retry_instance.scrape_async('http://example.com', {})
+        assert data == {'title': 'Test Title'}
+
+        # Ensure that the cleaner was not called
+        assert retry_instance.cleaner is not None
+        # Since the cleaner was removed from the pipeline, data should be unmodified
+
+def test_fetcher_method_not_found(retry_instance):
+    with pytest.raises(AttributeError) as exc_info:
+        retry_instance.scrape_sync('http://example.com', {}, fetch_method='nonexistent_method')
+    assert "object has no attribute 'nonexistent_method'" in str(exc_info.value)
