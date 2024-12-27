@@ -24,14 +24,10 @@ rules = {
         'extractor_type': 'nlp',
         'nlp_task': 'sentiment',
     },
-    'summary': {
-        'extractor_type': 'nlp',
-        'nlp_task': 'summary',
-    },
 }
 
 async def main():
-    url = 'https://example.com/article'
+    url = 'https://books.toscrape.com/catalogue/sharp-objects_997/index.html'
     scraper = Retry()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))

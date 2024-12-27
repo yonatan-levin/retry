@@ -1,13 +1,15 @@
 import asyncio
 from retry import Retry
-from retry.logger import logger
+from retry.logger import getLogger
+
+logger = getLogger(__name__)
 
 rules = {
     'books': {
         'selector': 'article.product_pod',
         'type': 'css',
         'multiple': True,
-        'rules': {
+        'fields': {
             'title': {
                 'selector': 'h3 > a',
                 'type': 'css',
@@ -39,24 +41,30 @@ rules = {
 }
 
 
-async def scrape_book_details(scraper, book):
-    detail_url = book['detail_url']
+async def scrape_book_details(scraper: Retry, book):
+    detail_urls = book['detail_url']
     detail_rules = {
-        'description': {
-            'selector': '#product_description ~ p',
-            'type': 'css',
-        },
-        'keywords': {
-            'extractor_type': 'nlp',
-            'nlp_task': 'keywords',
-            'text_source': 'description',
-        }
-    }
+        "books_detail": {
+            'fields': {
+                'description': {
+                    'selector': '#product_description ~ p',
+                    'type': 'css',
+                },
+                'keywords': {
+                    'extractor_type': 'nlp',
+                    'text_source': 'selector',
+                    'selector': '#product_description ~ p',
+                    'nlp_task': 'keywords',
+                    'type': 'css'
+                }
+            }}}
     try:
-        detail_data = await scraper.scrape(detail_url, detail_rules)
-        book.update(detail_data)
+        books_detail = await scraper.scrape_multiple(urls=detail_urls, rules=detail_rules, fetch_method='fetch_multiple')
+        book['books_detail'] = books_detail
+
     except Exception as e:
-        logger.error(f"Error scraping details for {detail_url}: {e}")
+        logger.error(f"Error scraping details for {detail_urls}: {e}")
+
 
 async def main():
     scraper = Retry()
@@ -68,12 +76,9 @@ async def main():
         try:
             page_data = await scraper.scrape(url, rules)
             books = page_data.get('books', [])
-            tasks = []
 
-            for book in books:
-                tasks.append(scrape_book_details(scraper, book))
+            await scrape_book_details(scraper, books)
 
-            await asyncio.gather(*tasks)
             all_books.extend(books)
             print(f"Scraped page {page}")
         except Exception as e:

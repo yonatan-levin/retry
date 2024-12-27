@@ -1,20 +1,51 @@
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, validator, root_validator
+from typing import Callable, Optional, Dict
+from enum import Enum
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic import RootModel
 
+class ExtractorType(Enum):
+    DEFAULT = 'default'
+    NLP = 'nlp'
+    
+class PosTags(Enum):
+    NOUN = 'NOUN'
+    VERB = 'VERB'
+    ADJ = 'ADJ'
+    ADV = 'ADV'
+    PROPN = 'PROPN'
+    NUM = 'NUM'
+    PRON = 'PRON'
+    DET = 'DET'
+    ADP = 'ADP'
+    AUX = 'AUX'
+    INTJ = 'INTJ'
+    CONJ = 'CONJ'
+    PART = 'PART'
+    PUNCT = 'PUNCT'
+    SYM = 'SYM'
+    X = 'X'
+
+class NLPTask(Enum):
+    NER = 'ner'
+    KEYWORDS = 'keywords'
+    SENTIMENT = 'sentiment'
+    SUMMARY = 'summary'
+    MATCH_PATTERNS = 'match_patterns'
 
 class Rule(BaseModel):
-    extractor_type: Optional[str] = 'default'
+    extractor_type: Optional[str] = ExtractorType.DEFAULT
     selector: Optional[str] = None
     type: Optional[str] = None  # No default value
     attribute: Optional[str] = None
     regex: Optional[str] = None
     multiple: Optional[bool] = False
-    processor: Optional[Any] = None  # You can specify more precise types if needed
+    parent: Optional[bool] = False
+    processor: Optional[Callable] = None  
     fields: Optional[Dict[str, 'Rule']] = None  # Recursive definition
-    nlp_task: Optional[str] = None
+    nlp_task: Optional[NLPTask] = None
     text_source: Optional[str] = 'content'
     entity_type: Optional[str] = None
+    pos_tags: Optional[PosTags] = None
 
     @field_validator('extractor_type')
     def validate_extractor_type(cls, v):
@@ -44,7 +75,23 @@ class Rule(BaseModel):
         elif values.extractor_type == 'nlp':
             if not values.nlp_task:
                 raise ValueError("Field 'nlp_task' is required when 'extractor_type' is 'nlp'")
-           
+            
+        if values.fields:
+            values.parent = True
+            for field_name, field_rule in values.fields.items():
+                if field_rule.parent:
+                    raise ValueError(f"'parent' cannot be set in child rule '{field_name}'")  
+         
+        return values
+
+
+    @model_validator(mode='after')
+    def check_multiple_child_field(cls, values):
+        fields = values.fields
+        if fields:
+            for field_name, field_rule in fields.items():
+                if field_rule.multiple:
+                    raise ValueError(f"'multiple' cannot be set in child rule '{field_name}'")
         return values
 
     model_config = ConfigDict(
@@ -53,6 +100,8 @@ class Rule(BaseModel):
 
 Rule.model_rebuild()
 
-# If you have a Rules class, define it as follows:
+
 class Rules(RootModel[Dict[str, Rule]]):
     pass
+
+

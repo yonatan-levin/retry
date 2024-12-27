@@ -155,16 +155,6 @@ def test_register_plugin_invalid(retry_instance):
         retry_instance.register_plugin(InvalidPlugin())
     assert "Plugin must implement a callable 'process' method." in str(exc_info.value)
 
-# @pytest.mark.asyncio For now we don't support custom fetch methods
-# async def test_scrape_with_custom_fetch_method(retry_instance, sample_html_content, sample_rules):
-#     # Add a custom fetch method to the Fetcher
-#     async def custom_fetch(self, url, retries=3):
-#         return (sample_html_content, 'text/html')
-
-#     with patch.object(Fetcher, 'custom_fetch', new=custom_fetch):
-#         data = await retry_instance.scrape_async('http://example.com', sample_rules, fetch_method='custom_fetch')
-#         assert data == {'title': 'Hello World'}
-
 @pytest.mark.asyncio
 async def test_cache_usage():
     cache = SimpleCache()

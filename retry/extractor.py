@@ -1,24 +1,25 @@
-import json
 import re
 from typing import Optional, Dict, Any, Union
 import spacy
 from textblob import TextBlob
 from spacy.matcher import Matcher
 from retry.models.rules import Rules, Rule
-# Adjust the import based on your project structure
 from retry.parser import ContentParser
-from .logger import logger  # Adjust the import based on your project structure
+from .logger import getLogger
 
-logger.name = 'extractor'
+logger = getLogger(__name__)
 
 
-# The updated ContentExtractor class
 class ContentExtractor:
+
     def __init__(self,
                  parser: ContentParser = None,
                  rules: Union[Dict[str, Any], Rules] = None,
                  match_patterns: Optional[Dict[str, Any]] = None,
-                 extractor_config: Optional[Any] = None):  # Adjust type as needed
+                 extractor_config: Optional[Any] = None):
+
+        self._rules = None
+
         if extractor_config:
             self.parser = extractor_config.parser or parser
             if extractor_config.rules and any(value is not None for value in extractor_config.rules.values()):
@@ -31,40 +32,57 @@ class ContentExtractor:
             self.rules = rules or {}
             self.match_patterns = match_patterns or {}
 
-        # Validate and parse rules if they are provided as dict
-        if isinstance(self.rules, dict):
-            self.rules = Rules.model_validate(self.rules)
-        elif isinstance(self.rules, Rules):
-            self.rules = self.rules.__root__
-        else:
-            raise ValueError(
-                "Invalid rules format. Must be a dict or Rules object.")
-
         self.nlp = spacy.load('en_core_web_sm')
         self.matcher = Matcher(self.nlp.vocab)
         if self.match_patterns:
             for key, pattern in self.match_patterns.items():
                 self.matcher.add(key, pattern)
 
+    @property
+    def rules(self):
+        return self._rules
+
+    @rules.setter
+    def rules(self, rules):
+        if rules is not None:
+            # Validate and parse rules if they are provided as dict
+            if isinstance(rules, dict):
+                validated_rules = Rules.model_validate(rules)
+                self._rules = validated_rules.root
+            elif isinstance(rules, Rules):
+                self._rules = rules.root
+            else:
+                raise ValueError(
+                    "Invalid rules format. Must be a dict or Rules object.")
+        else:
+            self._rules = {}
+
     def extract(self):
-        data = {}
-        for key, rule in self.rules.root.items():
+        self.data = {}
+        for key, rule in self.rules.items():
             try:
-                data[key] = self._process_rule(self.parser, rule)
-                logger.debug(f"Extracted {key}: {data[key]}")
+                data = self._process_rule(self.parser, rule)
+                                    
+                self.data[key] = data
+                logger.debug(f"Extracted {key}: {self.data[key]}")
             except Exception as e:
                 logger.error(f"Error extracting data for {key}: {e}")
-                data[key] = None
-        return data
+                self.data[key] = None
+        return self.data
 
-    def _process_rule(self, parser, rule: Rule):
+    def _process_rule(self, parser: ContentParser, rule: Rule, is_multiple: bool = None):
+
+        # Determine is_multiple: if provided, use it; else use rule.multiple
+        if is_multiple is None and rule.multiple is not None:
+            is_multiple = rule.multiple
+
         fields = rule.fields
+
         if fields:
             item = {}
             for field_name, field_rule in fields.items():
                 try:
-                    # Use the same parser for nested fields unless a new parser is needed
-                    item[field_name] = self._process_rule(parser, field_rule)
+                    item[field_name] = self._process_rule(parser, field_rule, is_multiple=is_multiple)
                     logger.debug(f"Extracted {field_name}: {item[field_name]}")
                 except Exception as e:
                     logger.error(
@@ -74,17 +92,16 @@ class ContentExtractor:
         else:
             # Handle extraction based on extractor_type
             if rule.extractor_type == 'nlp':
-                return self._extract_nlp(rule, parser=parser)
+                return self._extract_nlp(rule, parser, is_multiple)
             else:
-                return self._extract_data(parser, rule)
+                return self._extract_data(rule, parser, is_multiple)
 
-    def _extract_data(self, parser: ContentParser, rule: Rule):
+    def _extract_data(self, rule: Rule, parser: ContentParser, is_multiple: bool = None):
 
         if rule.type == 'json':
             elements = parser.select_json(rule.selector)
         else:
-            elements = parser.select(rule.selector, rule.type) if rule.selector else [
-                parser.content]
+            elements = parser.select(rule.selector, rule.type) if rule.selector else [parser.content]
 
         results = []
         for element in elements:
@@ -95,13 +112,19 @@ class ContentExtractor:
                     rule.attribute) if rule.attribute else element
             elif hasattr(element, 'get'):  # For BeautifulSoup elements
                 if rule.attribute:
-                    value = element.get(rule.attribute, '').strip()
+                    attr_value = element.get(rule.attribute, '')
+                    if isinstance(attr_value, list):
+                        # Process each item in the list
+                        value = ' '.join(item.strip()
+                                         for item in attr_value if isinstance(item, str))
+                    elif isinstance(attr_value, str):
+                        value = attr_value.strip()
+                    else:
+                        value = str(attr_value).strip()
                 else:
                     value = element.text.strip()
-            else:
-                value = str(element).strip()
 
-            if rule.regex:
+            if rule.regex and isinstance(value, str):
                 match = re.search(rule.regex, value)
                 value = match.group(1) if match else None
 
@@ -111,52 +134,59 @@ class ContentExtractor:
             if value is not None:
                 results.append(value)
 
-            if not rule.multiple:
+            if not is_multiple:
                 break
 
-        data = results if rule.multiple else (results[0] if results else None)
+        data = results if is_multiple else (results[0] if results else None)
         return data
 
-    def _extract_nlp(self, rule: Rule, parser=None):
+    def _extract_nlp(self, rule: Rule, parser: ContentParser, is_multiple: bool = None):
+
         nlp_task = rule.nlp_task
         text_source = rule.text_source or 'content'
 
-        # Use the provided parser or default to self.parser
-        parser = parser or self.parser
-
         # Get the text to process
         if text_source == 'content':
-            text = parser.get_text()
+            text = parser.parsed_content.get_text()
+        elif text_source in self.data:
+            text = self.data[text_source]
         else:
             # If text_source is a selector, extract text using that selector
-            elements = parser.select(
-                text_source, rule.type) if rule.type and text_source else [parser.content]
-            texts = [element.get_text(strip=True) for element in elements]
+            elements = parser.select(text_source, rule.type) if rule.type and text_source else [parser.content]
+            texts = []
+            for element in elements:
+                text_content = element.get_text(strip=True)
+                texts.append(text_content)
+                if not is_multiple:
+                    break
             text = ' '.join(texts)
 
         doc = self.nlp(text)
 
-        if nlp_task == 'ner':
+        if nlp_task.value == 'ner':
             entity_type = rule.entity_type
             entities = [ent.text for ent in doc.ents if ent.label_ ==
                         entity_type] if entity_type else [ent.text for ent in doc.ents]
             return entities
 
-        elif nlp_task == 'keywords':
+        elif nlp_task.value == 'keywords':
             # Simple keyword extraction using part-of-speech tagging
-            keywords = [
-                token.text for token in doc if token.pos_ in ['NOUN', 'PROPN']]
+            # Allow customization of POS tags
+            # Other options include: 'ADJ', 'ADV', 'VERB', 'PRON', 'DET', 'ADP', 'CONJ', 'NUM', 'PUNCT', 'SYM', 'X'
+            pos_tags = rule.pos_tags or ['NOUN', 'PROPN']
+            keywords = [token.text for token in doc if token.pos_ in pos_tags]
+
             return keywords
 
-        elif nlp_task == 'sentiment':
+        elif nlp_task.value == 'sentiment':
             blob = self._analyze_sentiment(text)
             return blob
 
-        elif nlp_task == 'summary':
+        elif nlp_task.value == 'summary':
             # Placeholder for summary task
             return "Summary functionality not implemented."
 
-        elif nlp_task == 'match_patterns':
+        elif nlp_task.value == 'match_patterns':
             extracted_data = self._match_patterns(doc)
             return extracted_data
         else:

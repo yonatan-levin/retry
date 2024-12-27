@@ -4,13 +4,20 @@ import xml.etree.ElementTree as ET
 from io import StringIO
 import csv
 from retry.formatter import OutputFormatter
- 
+
 @pytest.fixture
 def sample_data_dict():
     return {
         "name": "John Doe",
         "age": 30,
         "email": "john.doe@example.com"
+    }
+
+@pytest.fixture
+def sample_data_dict_list():
+    return {
+        "title": ['A Light in the Attic', 'Tipping the Velvet', 'Soumission', 'Sharp Objects', 'Sapiens: A Brief History of Humankind', 'The Requiem Red', 'The Dirty Little Secrets of Getting Your Dream Job', 'The Coming Woman: A Novel Based on the Life of the Infamous Feminist, Victoria Woodhull', 'The Boys in the Boat: Nine Americans and Their Epic Quest for Gold at the 1936 Berlin Olympics', 'The Black Maria', 'Starving Hearts (Triangular Trade Trilogy, #1)', "Shakespeare's Sonnets", 'Set Me Free', "Scott Pilgrim's Precious Little Life (Scott Pilgrim #1)", 'Rip it Up and Start Again', 'Our Band Could Be Your Life: Scenes from the American Indie Underground, 1981-1991', 'Olio', 'Mesaerion: The Best Science Fiction Stories 1800-1849', 'Libertarianism for Beginners', "It's Only the Himalayas"],
+        "price": ['£51.77', '£53.74', '£50.10', '£47.82', '£54.23', '£22.65', '£33.34', '£17.93', '£22.60', '£52.15', '£13.99', '£20.66', '£17.46', '£52.29', '£35.02', '£57.25', '£23.88', '£37.59', '£51.33', '£45.17']
     }
 
 @pytest.fixture
@@ -40,6 +47,7 @@ def test_format_json_dict(sample_data_dict):
     expected = json.dumps(sample_data_dict, ensure_ascii=False, indent=2)
     assert result == expected
 
+
 def test_format_json_list(sample_data_list):
     formatter = OutputFormatter()
     result = formatter.format(sample_data_list, format_type='json')
@@ -68,9 +76,10 @@ def test_format_csv_list(sample_data_list):
     output = StringIO(result)
     reader = csv.reader(output)
     rows = list(reader)
-    assert len(rows) == len(sample_data_list) + 1 # +1 for header 
+    assert len(rows) == len(sample_data_list) + 1  # +1 for header
     for i, item in enumerate(sample_data_list):
-        assert rows[i+1] == [str(value) for value in item.values()] # +1 to ignore header
+        assert rows[i+1] == [str(value)
+                             for value in item.values()]  # +1 to ignore header
     assert rows[0] == [str(value) for value in sample_data_list[0].keys()]
 
 def test_format_csv_empty():
@@ -198,7 +207,8 @@ def test_format_json_with_non_serializable_data():
 
 def test_format_csv_with_nested_dict():
     formatter = OutputFormatter()
-    data = {'name': 'John Doe', 'details': {'age': 30, 'email': 'john.doe@example.com'}}
+    data = {'name': 'John Doe', 'details': {
+        'age': 30, 'email': 'john.doe@example.com'}}
     result = formatter.format(data, format_type='csv')
 
     expected_output = "name,details_age,details_email\r\nJohn Doe,30,john.doe@example.com\r\n"
@@ -242,3 +252,53 @@ def test_format_xml_with_empty_dict():
     expected = '<root />'
     assert result.strip() == expected
 
+# New tests for _restructure_data method
+def test_single_record_dict():
+    formatter = OutputFormatter()
+
+    data = {
+        "name": "John Doe",
+        "age": 30,
+        "email": "john.doe@example.com"
+    }
+    expected = {"name": "John Doe", "age": 30, "email": "john.doe@example.com"}
+    
+    assert formatter._restructure_data(data) == expected
+
+def test_dict_of_lists():
+    formatter = OutputFormatter()
+
+    data = {
+        "title": ["Title1", "Title2"],
+        "price": ["£10", "£20"]
+    }
+    expected = [
+        {"title": "Title1", "price": "£10"},
+        {"title": "Title2", "price": "£20"}
+    ]
+    assert formatter._restructure_data(data) == expected
+
+def test_nested_with_top_key():
+    formatter = OutputFormatter()
+
+    data = {
+        "books": {
+            "title": ["Title1", "Title2"],
+            "price": ["£10", "£20"]
+        }
+    }
+    expected = [
+        {"title": "Title1", "price": "£10"},
+        {"title": "Title2", "price": "£20"}
+    ]
+    assert formatter._restructure_data(data) == expected
+
+def test_mixed_data_error():
+    formatter = OutputFormatter()
+
+    data = {
+        "title": ["Title1", "Title2"],
+        "author": "John Doe"  # scalar, while 'title' is a list
+    }
+    with pytest.raises(TypeError):
+        formatter._restructure_data(data)

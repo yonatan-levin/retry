@@ -18,19 +18,22 @@ class SessionManager:
         self.session = None  # Initialize session to None
  
     async def __aenter__(self):
-        if self.connector is None:
-            self.connector = TCPConnector(ssl=False)
-        self.session = ClientSession(
-            headers=self.headers,
-            cookies=self.cookies,
-            auth=self.auth,
-            connector=self.connector,
-            trust_env=True
-        )
-        return self.session
+        if not self.session:
+            if self.connector is None or self.connector.closed:
+                self.connector = TCPConnector(ssl=False)
+            self.session = ClientSession(
+                headers=self.headers,
+                cookies=self.cookies,
+                auth=self.auth,
+                connector=self.connector,
+                trust_env=True
+            )
+            return self.session
+        else:
+            return self.session
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        pass
+        await self.close()
         
     async def open(self):
         if not self.session:

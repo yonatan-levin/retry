@@ -5,9 +5,9 @@ from spacy.util import compile_infix_regex
 from spacy.tokens import Span
 from retry.config.cleaner_config import CleanerConfig
 from .constants import UNWANTED_PATTERNS, CUSTOM_INFIXES
-from .logger import logger
+from .logger import getLogger
 
-logger.name = 'cleaner'
+logger = getLogger(__name__)
 
 
 class Cleaner:

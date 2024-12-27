@@ -1,14 +1,18 @@
 import asyncio
-from .config import CleanerConfig,ExtractorConfig,FetcherConfig
+from typing import Any, Dict, Union
+
+from .models.rules import Rules
+from .utils import SimpleCache , PaginationHandler
+from .config import CleanerConfig,FetcherConfig
 from .fetcher import Fetcher
 from .parser import ContentParser
 from .extractor import ContentExtractor
 from .cleaner import Cleaner
 from .formatter import OutputFormatter
-from .utils.cache import SimpleCache
 
 class Retry:
-    def __init__(self, 
+    def __init__(self,
+                 rules: Union[Dict[str, Any], Rules] = None,
                  fetcher_config=None,
                  extractor_config=None,
                  cleaner_config=None,
@@ -20,6 +24,9 @@ class Retry:
                  cache=None, 
                  plugins=None, 
                  ):
+        
+        self._rules = None
+        self.rules = rules or {}
         
         self.cache = cache or SimpleCache()
         self.fetcher_config = fetcher_config or FetcherConfig()
@@ -39,6 +46,26 @@ class Retry:
             self._clean_data,
             self._apply_plugins
         ]
+
+
+    @property
+    def rules(self):
+        return self._rules
+
+    @rules.setter
+    def rules(self, rules):
+        if rules is not None:
+            # Validate and parse rules if they are provided as dict
+            if isinstance(rules, dict):
+                validated_rules = Rules.model_validate(rules)
+                self._rules = validated_rules.root
+            elif isinstance(rules, Rules):
+                self._rules = rules.root
+            else:
+                raise ValueError(
+                    "Invalid rules format. Must be a dict or Rules object.")
+        else:
+            self._rules = {}
 
     def register_plugin(self, plugin):
         if hasattr(plugin, 'process') and callable(getattr(plugin, 'process')):
@@ -67,8 +94,65 @@ class Retry:
     def scrape_sync(self, url, rules, fetch_method='fetch', **kwargs):
         return asyncio.run(self.scrape_async(url, rules, fetch_method, **kwargs))
 
-    def output(self, data, format_type='json'):
-            return self.formatter.format(data, format_type)
+    async def scrape_multiple(self, urls, rules, fetch_method='fetch_multiple',fetcher_config=None, extractor_config=None, cleaner_config=None,**kwargs):
+            if fetch_method == 'fetch_multiple':
+                contents = await self.fetcher.fetch_multiple(urls, **kwargs)
+            elif fetch_method == 'fetch_with_playwright_multiple':
+                contents = await self.fetcher.fetch_with_playwright_multiple(urls, **kwargs)
+            else:
+                raise ValueError(f"Unknown fetch_method: {fetch_method}")
+
+            results = []
+            for i, (content, content_type) in enumerate(contents):
+                context = {
+                    'url': urls[i],
+                    'content': content,
+                    'content_type': content_type,
+                    'rules': rules,
+                    'fetch_method': fetch_method,
+                    'fetcher_config': fetcher_config or self.fetcher_config,
+                    'extractor_config': extractor_config or self.extractor_config,
+                    'cleaner_config': cleaner_config or self.cleaner_config,
+                    'kwargs': kwargs
+                }
+                # Process the rest of the pipeline
+                for step in self.pipeline[1:]:  # Skip the _fetch_content step
+                    await step(context)
+                results.append(context.get('data'))
+            return results
+
+    async def scrape_with_pagination(self, url, rules, pagination_handler: PaginationHandler, **kwargs):
+            """
+            Scrape data across multiple pages using pagination.
+
+            :param url: The starting URL.
+            :param rules: The extraction rules.
+            :param pagination_handler: An instance of PaginationHandler.
+            :param kwargs: Additional arguments for scraping.
+            :return: A list of aggregated data from all pages.
+            """
+            results = []
+            current_url = url
+            page_count = 0
+
+            while current_url:
+                data = await self.scrape(current_url, rules, **kwargs)
+                results.append(data)
+
+                # Create a ContentParser instance to use with PaginationHandler
+                parser = self.parser_class(self.fetcher.last_content, self.fetcher.last_content_type)
+
+                # Get the next page URL
+                current_url = pagination_handler.get_next_page_url(parser, current_url)
+                page_count += 1
+
+                if pagination_handler.limit and page_count >= pagination_handler.limit:
+                    break
+
+            return results
+
+    def output(self, data, format_type='json',structure_data=True):
+            return self.formatter.format(data, format_type,structure_data)
 
     async def _fetch_content(self, context):
         fetch_function = getattr(self.fetcher, context['fetch_method'])
@@ -88,6 +172,7 @@ class Retry:
         context['parser'] = parser
 
     async def _extract_data(self, context):
+        
         extractor = self.extractor_class(
             parser=context['parser'],
             rules=context['rules'],

@@ -9,7 +9,6 @@ from retry.utils.authentication import Authentication
 from aioresponses import CallbackResult, aioresponses
 from retry.utils.cache import SimpleCache
 
-
 @pytest.fixture()
 def sample_url():
     return "https://example.com"
@@ -47,7 +46,7 @@ def mock_authentication():
 async def url_fetcher(mock_cache, mock_authentication):
     fetcher = Fetcher(
         proxies=['http://proxy1.com'],
-        user_agents=['UserAgent1', 'UserAgent2'],
+        user_agents=['UserAgent1'],
         cache=mock_cache,
         authentication=mock_authentication
     )
@@ -248,7 +247,7 @@ async def test_fetch_with_playwright_success(url_fetcher, sample_url, sample_con
         # Verify that the methods were called with the correct arguments
         mock_playwright_instance.chromium.launch.assert_called_with(proxy=expected_proxy_settings)
         mock_browser.new_context.assert_called_with(extra_http_headers=url_fetcher.headers)
-        mock_page.goto.assert_called_with(sample_url)
+        mock_page.goto.assert_called_with(sample_url, timeout=10000)
         mock_browser.close.assert_called_once()
 
 @pytest.mark.asyncio
@@ -327,3 +326,117 @@ async def test_fetch_success_with_fetcher_config(sample_url, sample_content):
         # Assert that the content was fetched successfully
         assert content == sample_content
         assert content_type == 'text/html'
+       
+@pytest.mark.asyncio
+async def test_fetch_multiple_success(url_fetcher, sample_url, sample_content):
+    urls = [f"{sample_url}/page{i}" for i in range(1, 4)]
+    with aioresponses() as m:
+        for url in urls:
+            m.get(url, status=200, body=sample_content, headers={'Content-Type': 'text/html'})
+        
+        results = await url_fetcher.fetch_multiple(urls)
+        
+        # Verify that the results are as expected
+        for content, content_type in results:
+            assert content == sample_content
+            assert content_type == 'text/html'
+        
+        # Verify that the requests were made for each URL
+        assert len(m.requests) == len(urls)
+        
+@pytest.mark.asyncio
+async def test_fetch_multiple_with_retry(url_fetcher, sample_url, sample_content):
+    urls = [f"{sample_url}/page{i}" for i in range(1, 4)]
+    call_counts = {}
+
+    async def request_callback(url, **kwargs):
+        
+        nonlocal call_counts
+        if url not in call_counts:
+            call_counts[url] = 0
+        call_counts[url] += 1
+
+        request_info = aiohttp.RequestInfo(
+                url=URL(url),
+                method='GET',
+                headers=kwargs.get('headers', {}),
+                real_url=URL(url)
+            )
+        if call_counts[url] == 1:
+            # First response: Raise a 404 ClientResponseError
+            raise aiohttp.ClientResponseError(
+                request_info=request_info,
+                history=(),
+                status=404,
+                message='Not Found',
+            )
+        else:
+            # Second response: Return 200 OK with desired content
+            return CallbackResult(
+                status=200,
+                body=sample_content,
+                headers={'Content-Type': 'text/html'}
+            )
+
+    with aioresponses() as m:
+        for url in urls:
+            m.get(url, callback=request_callback)
+
+        # Optionally, mock asyncio.sleep to avoid delays during testing
+        with patch('asyncio.sleep', return_value=None):
+            results = await url_fetcher.fetch_multiple(urls)
+
+    # Assertions
+    for content, content_type in results:
+        assert content == sample_content
+        assert content_type == 'text/html'
+    total_call_count = sum(call_counts.values())
+    assert total_call_count == 2 * len(urls)
+    
+@pytest.mark.asyncio
+async def test_fetch_with_playwright_multiple_success(url_fetcher, sample_url, sample_content):
+    urls = [f"{sample_url}/page{i}" for i in range(1, 4)]
+
+    with patch('retry.fetcher.async_playwright') as mock_async_playwright:
+            # Set up the async context manager for async_playwright
+            mock_playwright_instance = AsyncMock()
+            mock_async_playwright.return_value.__aenter__.return_value = mock_playwright_instance
+
+
+            # Mock the browser and context
+            mock_browser = AsyncMock()
+            mock_context = AsyncMock()
+
+            # Configure the mocks to return the appropriate objects
+            mock_playwright_instance.chromium.launch.return_value = mock_browser
+            mock_browser.new_context.return_value = mock_context
+
+            # Mock the page interactions for each URL
+            mock_pages = []
+            for _ in urls:
+                mock_page = AsyncMock()
+                mock_page.goto.return_value = AsyncMock()
+                mock_page.content.return_value = sample_content
+                mock_page.close.return_value = AsyncMock()
+                mock_pages.append(mock_page)
+            mock_context.new_page.side_effect = mock_pages
+
+            # Call the method under test
+            results = await url_fetcher.fetch_with_playwright_multiple(urls)
+
+            # Assertions
+            for content, content_type in results:
+                assert content == sample_content
+                assert content_type == 'text/html'
+
+            expected_proxy_settings = {'server': 'http://proxy1.com'}
+
+            # Verify that the methods were called with the correct arguments
+            mock_playwright_instance.chromium.launch.assert_called_with(proxy=expected_proxy_settings)
+            mock_browser.new_context.assert_called_with(extra_http_headers=url_fetcher.headers)
+            assert mock_context.new_page.call_count == len(urls)
+            for mock_page in mock_pages:
+                mock_page.goto.assert_called()
+                mock_page.content.assert_called()
+                mock_page.close.assert_called()
+            mock_browser.close.assert_called_once()

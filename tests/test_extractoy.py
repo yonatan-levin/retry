@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 import pytest
 from unittest.mock import MagicMock, patch
 from retry.parser import ContentParser
@@ -119,7 +120,8 @@ def test_extract_multiple(parser):
         }
     }
     extractor = ContentExtractor(parser, rules)
-    data= extractor.extract()
+    data = extractor.extract()
+    
     assert data['link_texts'] == ['Link 1', 'Link 2', 'Link 3']
 
 def test_extract_nlp_ner(sample_text_content):
@@ -248,7 +250,6 @@ def test_extract_invalid_selector_type(parser):
         assert 'Error extracting data' in args[0]
         assert 'invalid' in args[0]
 
-
 def test_extract_missing_selector(parser):
     rules = {
         'missing_selector': {
@@ -272,9 +273,9 @@ def test_extract_nlp_unknown_task(parser,sample_text_content):
             'nlp_task': 'unknown'
         }
     }
-    extractor = ContentExtractor(parser, rules)
-    data = extractor.extract()
-    assert data['unknown_task'] is None
+    with pytest.raises(ValidationError):
+        extractor = ContentExtractor(parser, rules)
+        extractor.extract()
 
 def test_extract_nlp_entity_type(sample_text_content):
     parser = MagicMock()
@@ -467,12 +468,10 @@ def test_nested_rule_object(parser):
                 'title': {
                     'selector': 'h1.title',
                     'type': 'css',
-                    'multiple': False
                 },
                 'content': {
                     'selector': 'p.content',
                     'type': 'css',
-                    'multiple': False
                 }
             }
         }
@@ -483,3 +482,37 @@ def test_nested_rule_object(parser):
         'title': 'Hello World',
         'content': 'This is a test page.'
     }
+    
+def test_nested_rule_list(parser):
+    rules = {
+        'nested_rule': {
+            'selector': 'div#main',
+            'type': 'css',
+            'multiple': True,
+            'fields': {
+                'links': {
+                    'selector': 'ul li a',
+                    'type': 'css',
+                    'attribute': 'href',
+                }
+            }
+        }
+    }
+    extractor = ContentExtractor(parser, rules)
+    data = extractor.extract()
+    assert data['nested_rule'] == {
+        'links': ['/link1', '/link2', '/link3']
+    }
+    
+def test_rules_without_fields(parser):
+    rules = {
+        'main_content': {
+            'selector': 'div#main',
+            'type': 'css'
+            # 'fields' property is intentionally omitted
+        }
+    }
+    extractor = ContentExtractor(parser, rules)
+    data = extractor.extract()
+    assert 'main_content' in data
+    assert 'Hello World' in data['main_content']
