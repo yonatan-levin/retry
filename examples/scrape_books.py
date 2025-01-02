@@ -1,4 +1,5 @@
 import asyncio
+import time
 from retry import Retry
 from retry.logger import getLogger
 
@@ -52,8 +53,8 @@ async def scrape_book_details(scraper: Retry, book):
                 },
                 'keywords': {
                     'extractor_type': 'nlp',
-                    'text_source': 'selector',
-                    'selector': '#product_description ~ p',
+                    'text_source': 'dependent',
+                    'dependent_item': 'description',
                     'nlp_task': 'keywords',
                     'type': 'css'
                 }
@@ -65,12 +66,18 @@ async def scrape_book_details(scraper: Retry, book):
     except Exception as e:
         logger.error(f"Error scraping details for {detail_urls}: {e}")
 
+def extend_book_list(source_data: dict, target_data: dict, page: str) -> dict:
+    if page not in target_data:
+        target_data[page] = {}
+    for key,value in source_data.items():
+        target_data[page][key] = value
+    return target_data
 
 async def main():
     scraper = Retry()
-    all_books = []
-    total_pages = 50  # Total number of pages
-
+    all_books = {}
+    total_pages = 2  # Total number of pages
+    start_time = time.time()
     for page in range(1, total_pages + 1):
         url = f'https://books.toscrape.com/catalogue/page-{page}.html'
         try:
@@ -79,19 +86,21 @@ async def main():
 
             await scrape_book_details(scraper, books)
 
-            all_books.extend(books)
+            extend_book_list(books,all_books,str(page))
             print(f"Scraped page {page}")
         except Exception as e:
             logger.error(f"Error scraping page {page}: {e}")
 
     # Output the results
-    for book in all_books:
-        print(f"Title: {book['title']}")
-        print(f"Price: {book['price']}")
-        print(f"Rating: {book['rating']}")
-        print(f"Availability: {book['availability']}")
-        print(f"Keywords: {', '.join(book.get('keywords', []))}")
-        print("-" * 40)
+    out = scraper.output(all_books, 'json')
+    print(out)
+    with open("data.json", "w") as outfile:
+        outfile.write(out)
+        
+    end_time = time.time()
+
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time: {elapsed_time} seconds")
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -12,6 +12,7 @@ class OutputFormatter:
         if format_type == 'json':          
             if structure_data and isinstance(data, dict):
                 data = self._restructure_data(data)
+                
             return json.dumps(data, ensure_ascii=False, indent=2)
         elif format_type == 'csv':
             return self._format_csv(data)

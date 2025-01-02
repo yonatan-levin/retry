@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Dict
+from typing import Callable, List, Optional, Dict
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic import RootModel
@@ -32,6 +32,11 @@ class NLPTask(Enum):
     SUMMARY = 'summary'
     MATCH_PATTERNS = 'match_patterns'
 
+class TextSource(Enum):
+    CONTENT = 'content'
+    SELECTOR = 'selector'
+    DEPENDENT = 'dependent'
+
 class Rule(BaseModel):
     extractor_type: Optional[str] = ExtractorType.DEFAULT
     selector: Optional[str] = None
@@ -43,14 +48,16 @@ class Rule(BaseModel):
     processor: Optional[Callable] = None  
     fields: Optional[Dict[str, 'Rule']] = None  # Recursive definition
     nlp_task: Optional[NLPTask] = None
-    text_source: Optional[str] = 'content'
+    text_source: Optional[TextSource] = TextSource.CONTENT
+    dependent_item: Optional[str] = None
     entity_type: Optional[str] = None
-    pos_tags: Optional[PosTags] = None
+    pos_tags: Optional[List[PosTags]] = None
 
     @field_validator('extractor_type')
     def validate_extractor_type(cls, v):
         if v not in ('default', 'nlp'):
             raise ValueError("extractor_type must be 'default' or 'nlp'")
+        
         return v
     
     @field_validator('type')
@@ -73,8 +80,15 @@ class Rule(BaseModel):
                 raise ValueError("Field 'nlp_task' should not be set when 'extractor_type' is 'default'")
                 
         elif values.extractor_type == 'nlp':
+            
             if not values.nlp_task:
                 raise ValueError("Field 'nlp_task' is required when 'extractor_type' is 'nlp'")
+            
+            if (values.selector and values.text_source.value is not 'selector')  or (values.text_source.value is 'selector' and not values.selector):
+                raise ValueError("Field 'text_source' should be 'selector' with filed 'selector' set")
+
+            if values.text_source.value is 'dependent' and not values.dependent_item:
+                raise ValueError("Field 'dependent_item' is required when 'text_source' is 'dependent'")                
             
         if values.fields:
             values.parent = True

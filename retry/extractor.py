@@ -1,3 +1,4 @@
+import enum
 import re
 from typing import Optional, Dict, Any, Union
 import spacy
@@ -19,6 +20,7 @@ class ContentExtractor:
                  extractor_config: Optional[Any] = None):
 
         self._rules = None
+        self.data = {}
 
         if extractor_config:
             self.parser = extractor_config.parser or parser
@@ -57,12 +59,10 @@ class ContentExtractor:
         else:
             self._rules = {}
 
-    def extract(self):
-        self.data = {}
+    def extract(self):  
         for key, rule in self.rules.items():
             try:
-                data = self._process_rule(self.parser, rule)
-                                    
+                data = self._process_rule(self.parser, rule)                                  
                 self.data[key] = data
                 logger.debug(f"Extracted {key}: {self.data[key]}")
             except Exception as e:
@@ -79,16 +79,15 @@ class ContentExtractor:
         fields = rule.fields
 
         if fields:
-            item = {}
+            self.item = {}
             for field_name, field_rule in fields.items():
                 try:
-                    item[field_name] = self._process_rule(parser, field_rule, is_multiple=is_multiple)
-                    logger.debug(f"Extracted {field_name}: {item[field_name]}")
+                    self.item[field_name] = self._process_rule(parser, field_rule, is_multiple=is_multiple)
+                    logger.debug(f"Extracted {field_name}: {self.item[field_name]}")
                 except Exception as e:
-                    logger.error(
-                        f"Error extracting data for {field_name}: {e}")
-                    item[field_name] = None
-            return item
+                    logger.error(f"Error extracting data for {field_name}: {e}")
+                    self.item[field_name] = None
+            return self.item
         else:
             # Handle extraction based on extractor_type
             if rule.extractor_type == 'nlp':
@@ -108,8 +107,7 @@ class ContentExtractor:
             # Extract value from element
             if isinstance(element, dict):
                 # Handle JSON elements
-                value = element.get(
-                    rule.attribute) if rule.attribute else element
+                value = element.get(rule.attribute) if rule.attribute else element
             elif hasattr(element, 'get'):  # For BeautifulSoup elements
                 if rule.attribute:
                     attr_value = element.get(rule.attribute, '')
@@ -143,16 +141,16 @@ class ContentExtractor:
     def _extract_nlp(self, rule: Rule, parser: ContentParser, is_multiple: bool = None):
 
         nlp_task = rule.nlp_task
-        text_source = rule.text_source or 'content'
-
+        text_source = rule.text_source
+        
         # Get the text to process
-        if text_source == 'content':
-            text = parser.parsed_content.get_text()
-        elif text_source in self.data:
-            text = self.data[text_source]
+        if text_source.value == 'content':
+            text = parser.parsed_content.get_text() 
+        elif text_source.value == 'dependent':
+            text = self.item[rule.dependent_item]
         else:
             # If text_source is a selector, extract text using that selector
-            elements = parser.select(text_source, rule.type) if rule.type and text_source else [parser.content]
+            elements = parser.select(rule.selector, rule.type) if rule.selector else [parser.content]
             texts = []
             for element in elements:
                 text_content = element.get_text(strip=True)
@@ -174,8 +172,17 @@ class ContentExtractor:
             # Allow customization of POS tags
             # Other options include: 'ADJ', 'ADV', 'VERB', 'PRON', 'DET', 'ADP', 'CONJ', 'NUM', 'PUNCT', 'SYM', 'X'
             pos_tags = rule.pos_tags or ['NOUN', 'PROPN']
-            keywords = [token.text for token in doc if token.pos_ in pos_tags]
-
+            
+            # Convert all items in pos_tags to strings (if they are enum.Enum)
+            pos_tags_str = []
+            for tag in pos_tags:
+                if isinstance(tag, enum.Enum):
+                    pos_tags_str.append(tag.value)
+                else:
+                    pos_tags_str.append(tag)
+            
+            keywords = [token.text for token in doc if token.pos_ in pos_tags_str]
+            
             return keywords
 
         elif nlp_task.value == 'sentiment':

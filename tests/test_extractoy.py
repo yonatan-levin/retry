@@ -27,9 +27,18 @@ def sample_html_content():
     </html>
     """
 
+
+@pytest.fixture
+def sample_html_content_2():
+    return """
+    <p>It's hard to imagine a world without A Light in the Attic. This now-classic collection of poetry and drawings from Shel Silverstein celebrates its 20th anniversary with this special edition. Silverstein's humorous and creative verse can amuse the dowdiest of readers. Lemon-faced adults and fidgety kids sit still and read these rhythmic words and laugh and smile and love th It's hard to imagine a world without A Light in the Attic. This now-classic collection of poetry and drawings from Shel Silverstein celebrates its 20th anniversary with this special edition. Silverstein's humorous and creative verse can amuse the dowdiest of readers. Lemon-faced adults and fidgety kids sit still and read these rhythmic words and laugh and smile and love that Silverstein. Need proof of his genius? RockabyeRockabye baby, in the treetopDon't you know a treetopIs no safe place to rock?And who put you up there,And your cradle, too?Baby, I think someone down here'sGot it in for you. Shel, you never sounded so good. ...more</p>
+    """
+
+
 @pytest.fixture
 def sample_text_content():
     return "Apple is looking at buying U.K. startup for $1 billion. This is great news!"
+
 
 @pytest.fixture
 def sample_json_content():
@@ -41,19 +50,29 @@ def sample_json_content():
         ]
     }
 
+
 @pytest.fixture
 def logger():
     with patch.object('retry.extractor.logger', 'error', MagicMock()) as mock_logger:
         yield mock_logger
+
+
 @pytest.fixture
 def parser(sample_html_content):
-    # Assuming ContentParser has a method get_text()
     parser = ContentParser(sample_html_content, content_type='text/html')
     return parser
 
+
+@pytest.fixture
+def parser_2(sample_html_content_2):
+    parser = ContentParser(sample_html_content_2, content_type='text/html')
+    return parser
+
+
 @pytest.fixture
 def parser_json(sample_json_content):
-    parser = ContentParser(sample_json_content, content_type='application/json')
+    parser = ContentParser(sample_json_content,
+                           content_type='application/json')
     return parser
 
 
@@ -61,6 +80,7 @@ def parser_json(sample_json_content):
 def nlp():
     # Load the small English model
     return spacy.load('en_core_web_sm')
+
 
 def test_extract_default(parser):
     rules = {
@@ -83,6 +103,7 @@ def test_extract_default(parser):
     assert data['title'] == 'Hello World'
     assert data['links'] == ['/link1', '/link2', '/link3']
 
+
 def test_extract_with_regex(parser):
     rules = {
         'first_link_number': {
@@ -97,6 +118,7 @@ def test_extract_with_regex(parser):
     data = extractor.extract()
     assert data['first_link_number'] == '1'
 
+
 def test_extract_attribute(parser):
     rules = {
         'main_div_id': {
@@ -110,6 +132,7 @@ def test_extract_attribute(parser):
     data = extractor.extract()
     assert data['main_div_id'] == 'main'
 
+
 def test_extract_multiple(parser):
     rules = {
         'link_texts': {
@@ -121,16 +144,18 @@ def test_extract_multiple(parser):
     }
     extractor = ContentExtractor(parser, rules)
     data = extractor.extract()
-    
+
     assert data['link_texts'] == ['Link 1', 'Link 2', 'Link 3']
+
 
 def test_extract_nlp_ner(sample_text_content):
     # Mock the parser to return sample_text_content
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     rules = {
         'entities': {
             'extractor_type': 'nlp',
+            'text_source': 'content',
             'nlp_task': 'ner',
             'entity_type': None  # Get all entities
         }
@@ -141,9 +166,10 @@ def test_extract_nlp_ner(sample_text_content):
     assert 'entities' in data
     assert data['entities'] == ['Apple', 'U.K.', '$1 billion']
 
+
 def test_extract_nlp_keywords(sample_text_content):
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     rules = {
         'keywords': {
             'extractor_type': 'nlp',
@@ -157,9 +183,10 @@ def test_extract_nlp_keywords(sample_text_content):
     expected_keywords = ['Apple', 'startup', 'news']
     assert set(expected_keywords).issubset(set(data['keywords']))
 
+
 def test_extract_nlp_sentiment(sample_text_content):
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     rules = {
         'sentiment': {
             'extractor_type': 'nlp',
@@ -173,6 +200,7 @@ def test_extract_nlp_sentiment(sample_text_content):
     assert sentiment_data['sentiment'] == 'Positive'
     assert -1.0 <= sentiment_data['polarity'] <= 1.0
     assert 0.0 <= sentiment_data['subjectivity'] <= 1.0
+
 
 def test_extract_with_processor(parser):
     def uppercase_processor(value):
@@ -188,6 +216,7 @@ def test_extract_with_processor(parser):
     extractor = ContentExtractor(parser, rules)
     data = extractor.extract()
     assert data['title_upper'] == 'HELLO WORLD'
+
 
 def test_extract_json_content():
     sample_json_content = {
@@ -211,11 +240,12 @@ def test_extract_json_content():
     data = extractor.extract()
     assert data['item_names'] == ['Item 1', 'Item 2', 'Item 3']
 
+
 def test_extract_with_match_patterns(sample_text_content):
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     match_patterns = {
-        'MONEY': [[{'IS_CURRENCY': True},{'LIKE_NUM': True}, {'LOWER': 'billion'}]]
+        'MONEY': [[{'IS_CURRENCY': True}, {'LIKE_NUM': True}, {'LOWER': 'billion'}]]
     }
     rules = {
         'money_mentions': {
@@ -228,6 +258,7 @@ def test_extract_with_match_patterns(sample_text_content):
     assert 'money_mentions' in data
     assert data['money_mentions'] == {'MONEY': ['$1 billion']}
 
+
 def test_extract_invalid_selector_type(parser):
     rules = {
         'invalid_selector': {
@@ -238,7 +269,7 @@ def test_extract_invalid_selector_type(parser):
         }
     }
     extractor = ContentExtractor(parser, rules)
-    with patch('retry.extractor.logger') as mock_logger:        
+    with patch('retry.extractor.logger') as mock_logger:
         value = extractor.extract()
 
         # Assert that the value is None due to the exception
@@ -249,6 +280,7 @@ def test_extract_invalid_selector_type(parser):
         args, kwargs = mock_logger.error.call_args
         assert 'Error extracting data' in args[0]
         assert 'invalid' in args[0]
+
 
 def test_extract_missing_selector(parser):
     rules = {
@@ -263,10 +295,11 @@ def test_extract_missing_selector(parser):
     data = extractor.extract()
     assert data['missing_selector'] is None
 
-def test_extract_nlp_unknown_task(parser,sample_text_content):
+
+def test_extract_nlp_unknown_task(parser, sample_text_content):
     # Mock the parser to return sample_text_content
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     rules = {
         'unknown_task': {
             'extractor_type': 'nlp',
@@ -277,9 +310,10 @@ def test_extract_nlp_unknown_task(parser,sample_text_content):
         extractor = ContentExtractor(parser, rules)
         extractor.extract()
 
+
 def test_extract_nlp_entity_type(sample_text_content):
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     rules = {
         'organizations': {
             'extractor_type': 'nlp',
@@ -290,6 +324,7 @@ def test_extract_nlp_entity_type(sample_text_content):
     extractor = ContentExtractor(parser, rules)
     data = extractor.extract()
     assert data['organizations'] == ['Apple']
+
 
 def test_extract_nlp_from_selector(parser):
     rules = {
@@ -306,6 +341,7 @@ def test_extract_nlp_from_selector(parser):
     sentiment_data = data['title_sentiment']
     assert sentiment_data['sentiment'] == 'Neutral'
 
+
 def test_extract_with_regex_no_match(parser):
     rules = {
         'nonexistent_number': {
@@ -319,6 +355,7 @@ def test_extract_with_regex_no_match(parser):
     data = extractor.extract()
     assert data['nonexistent_number'] is None
 
+
 def test_extract_default_with_no_elements(parser):
     rules = {
         'no_elements': {
@@ -330,6 +367,7 @@ def test_extract_default_with_no_elements(parser):
     extractor = ContentExtractor(parser, rules)
     data = extractor.extract()
     assert data['no_elements'] == []
+
 
 def test_extract_attribute_missing(parser):
     rules = {
@@ -343,6 +381,7 @@ def test_extract_attribute_missing(parser):
     extractor = ContentExtractor(parser, rules)
     data = extractor.extract()
     assert data['missing_attribute'] == ''
+
 
 def test_extract_json_with_regex():
     sample_json_content = {
@@ -367,9 +406,10 @@ def test_extract_json_with_regex():
     data = extractor.extract()
     assert data['emails'] == ['example', 'example', 'example']
 
+
 def test_extract_with_custom_matcher(sample_text_content):
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     # Define custom match patterns
     match_patterns = {
         'BUYING': [[{'LOWER': 'buying'}]]
@@ -383,6 +423,7 @@ def test_extract_with_custom_matcher(sample_text_content):
     extractor = ContentExtractor(parser, rules, match_patterns=match_patterns)
     data = extractor.extract()
     assert data['buying_mentions'] == {'BUYING': ['buying']}
+
 
 def test_extract_with_processor_exception(parser):
     # Define a faulty processor that raises an exception
@@ -399,8 +440,8 @@ def test_extract_with_processor_exception(parser):
 
     extractor = ContentExtractor(parser, rules)
 
-    with patch('retry.extractor.logger') as mock_logger:        
-      
+    with patch('retry.extractor.logger') as mock_logger:
+
         data = extractor.extract()
         # Assert that the value is None due to the exception
         assert data['faulty_extraction'] is None
@@ -411,9 +452,10 @@ def test_extract_with_processor_exception(parser):
         assert 'Error extracting data' in args[0]
         assert 'Processor error' in args[0]
 
+
 def test_extract_nlp_sentiment_empty_text():
     parser = MagicMock()
-    parser.get_text.return_value = ""
+    parser.parsed_content.get_text.return_value = ""
     rules = {
         'sentiment': {
             'extractor_type': 'nlp',
@@ -428,9 +470,10 @@ def test_extract_nlp_sentiment_empty_text():
         "subjectivity": 0.0
     }
 
+
 def test_extract_nlp_match_patterns_no_matches(sample_text_content):
     parser = MagicMock()
-    parser.get_text.return_value = sample_text_content
+    parser.parsed_content.get_text.return_value = sample_text_content
     match_patterns = {
         'NONEXISTENT': [[{'LOWER': 'nonexistent'}]]
     }
@@ -444,9 +487,11 @@ def test_extract_nlp_match_patterns_no_matches(sample_text_content):
     data = extractor.extract()
     assert data['no_matches'] == {}
 
+
 def test_extract_default_from_json(parser):
     with patch.object(parser, 'select_json', return_value=[{'name': 'Item 1'}, {'name': 'Item 2'}]):
-        parser.select_json.return_value = [{'name': 'Item 1'}, {'name': 'Item 2'}]
+        parser.select_json.return_value = [
+            {'name': 'Item 1'}, {'name': 'Item 2'}]
         rules = {
             'item_names': {
                 'selector': 'items',
@@ -458,7 +503,8 @@ def test_extract_default_from_json(parser):
         extractor = ContentExtractor(parser, rules)
         data = extractor.extract()
         assert data['item_names'] == ['Item 1', 'Item 2']
- 
+
+
 def test_nested_rule_object(parser):
     rules = {
         'nested_rule': {
@@ -482,7 +528,8 @@ def test_nested_rule_object(parser):
         'title': 'Hello World',
         'content': 'This is a test page.'
     }
-    
+
+
 def test_nested_rule_list(parser):
     rules = {
         'nested_rule': {
@@ -503,7 +550,8 @@ def test_nested_rule_list(parser):
     assert data['nested_rule'] == {
         'links': ['/link1', '/link2', '/link3']
     }
-    
+
+
 def test_rules_without_fields(parser):
     rules = {
         'main_content': {
@@ -516,3 +564,40 @@ def test_rules_without_fields(parser):
     data = extractor.extract()
     assert 'main_content' in data
     assert 'Hello World' in data['main_content']
+
+
+def test_extract_first_description_second_nlp(parser_2, sample_html_content_2):
+    # Mock the parser so it does not return any text
+    parser = MagicMock()
+    parser.parsed_content.get_text.return_value = ""
+
+    # Define a rule that specifies a custom text_source
+    rules = {
+        "books_detail": {
+            'fields': {
+                'description': {
+                    'selector': 'p',
+                    'type': 'css',
+                },
+                'keywords': {
+                    'extractor_type': 'nlp',
+                    'text_source': 'dependent',
+                    'dependent_item': 'description',
+                    'nlp_task': 'keywords',
+                    'type': 'css',
+                    'pos_tags': ['NOUN', 'PROPN','ADJ']
+                }
+            }}}
+
+    # Initialize the extractor
+    extractor = ContentExtractor(parser_2, rules)
+
+    # Extract data
+    data = extractor.extract()
+
+    # Assert that the description and keywords are extracted correctly
+    assert data['books_detail']['description'] == sample_html_content_2.strip().replace('\n', '').replace('<p>','').replace('</p>','')
+    assert 'keywords' in data['books_detail']
+    assert 'genius' in data['books_detail']['keywords']
+    assert 'Light' in data['books_detail']['keywords']
+    assert 'good' in data['books_detail']['keywords']
