@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from ..utils.authentication import Authentication
-from ..utils.cache import CacheInterface
+from ..utils.cache import BaseCache
 from ..utils.session_manager import SessionManager
 
 
@@ -12,7 +12,7 @@ class FetcherConfig:
     timeout: int = 10
     user_agents: str = None
     proxies: list[str] = None
-    cache: CacheInterface = None
+    cache: BaseCache = None
     authentication: Authentication = None
     session_manager: SessionManager = None
     

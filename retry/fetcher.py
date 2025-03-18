@@ -279,18 +279,28 @@ class Fetcher:
             logger.info(f"Cache hit for URL: {url}")
             return await self.cache.get(url)
 
-        await self.rate_limiter.wait()
+        await self.rate_limiter.wait(url)
 
         self.headers = {'User-Agent': random.choice(self.user_agents)}
 
         if self.authentication:
-            auth = self.authentication.get_auth()
-            if auth:
-                if isinstance(auth, aiohttp.BasicAuth):
+            if hasattr(self.authentication, 'get_auth'):
+                auth = self.authentication.get_auth()
+                if auth:
+                    if isinstance(auth, aiohttp.BasicAuth):
+                        auth_header = auth.encode()
+                        self.headers.update({'Authorization': auth_header})
+                    elif isinstance(auth, dict):
+                        self.headers.update(auth)
+            elif hasattr(self.authentication, 'get_headers'):
+                headers = self.authentication.get_headers()
+                if headers:
+                    self.headers.update(headers)
+            elif hasattr(self.authentication, 'get_auth_for_aiohttp'):
+                auth = self.authentication.get_auth_for_aiohttp()
+                if auth:
                     auth_header = auth.encode()
                     self.headers.update({'Authorization': auth_header})
-                elif isinstance(auth, dict):
-                    self.headers.update(auth)
 
         self.proxy = random.choice(self.proxies) if self.proxies else None
 

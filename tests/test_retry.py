@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
-from retry import Retry
+from retry import Scraper
 from retry.fetcher import Fetcher
 from retry.parser import ContentParser
 from retry.extractor import ContentExtractor
@@ -37,7 +37,7 @@ def sample_rules():
 
 @pytest.fixture
 def retry_instance():
-    return Retry()
+    return Scraper()
 
 @pytest.mark.asyncio
 async def test_scrape_async(retry_instance, sample_html_content, sample_rules):
@@ -157,11 +157,28 @@ def test_register_plugin_invalid(retry_instance):
 
 @pytest.mark.asyncio
 async def test_cache_usage():
-    cache = SimpleCache()
+    # Create a mock cache with async methods
+    class MockCache:
+        def __init__(self):
+            self.store = {}
+
+        async def set(self, key, value):
+            self.store[key] = value
+
+        async def get(self, key):
+            return self.store.get(key, None)
+
+        def contains(self, key):
+            return key in self.store
+    
+    cache = MockCache()
+    
     # Create a mock session_manager
     mock_session_manager = MagicMock()
     fetcher = Fetcher(session_manager=mock_session_manager, cache=cache)
-    retry_instance = Retry(fetcher=fetcher)
+    # Also mock the rate_limiter
+    fetcher.rate_limiter.wait = AsyncMock(return_value=None)
+    retry_instance = Scraper(fetcher=fetcher)
 
     url = 'http://example.com'
 
@@ -173,19 +190,21 @@ async def test_cache_usage():
     # Mock the session.get method to return an async context manager
     mock_response = MagicMock()
     mock_response.status = 200
+    mock_response.raise_for_status = MagicMock()
     # Ensure that response.headers.get('Content-Type') returns 'text/html'
-    mock_response.headers = MagicMock()
-    mock_response.headers.get = MagicMock(return_value='text/html')
-    # Alternatively, you can set headers as a dict:
-    # mock_response.headers = {'Content-Type': 'text/html'}
-
+    mock_response.headers = {'Content-Type': 'text/html'}
     mock_response.text = AsyncMock(return_value='<html></html>')
 
-    mock_get_context_manager = MagicMock()
-    mock_get_context_manager.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_get_context_manager.__aexit__ = AsyncMock(return_value=None)
-
-    mock_session.get.return_value = mock_get_context_manager
+    # Create a proper async context manager for mock_session.get()
+    class AsyncContextManagerMock:
+        async def __aenter__(self):
+            return mock_response
+        
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+    
+    # Use the MagicMock for get
+    mock_session.get = MagicMock(return_value=AsyncContextManagerMock())
 
     # First fetch: Should use the network and store result in cache
     data1 = await retry_instance.scrape_async(url, {})
@@ -225,27 +244,27 @@ async def test_cleaner_usage(retry_instance, sample_html_content, sample_rules):
 def test_fetcher_initialization():
     # Test that the fetcher is initialized with the cache
     cache = SimpleCache()
-    retry_instance = Retry(cache=cache)
+    retry_instance = Scraper(cache=cache)
     assert retry_instance.fetcher.cache is cache
 
 def test_formatter_initialization():
     # Test that the formatter is initialized properly
     formatter = OutputFormatter()
-    retry_instance = Retry(formatter=formatter)
+    retry_instance = Scraper(formatter=formatter)
     assert retry_instance.formatter is formatter
 
 def test_parser_class_initialization():
     class CustomParser(ContentParser):
         pass
 
-    retry_instance = Retry(parser_class=CustomParser)
+    retry_instance = Scraper(parser_class=CustomParser)
     assert retry_instance.parser_class is CustomParser
 
 def test_extractor_class_initialization():
     class CustomExtractor(ContentExtractor):
         pass
 
-    retry_instance = Retry(extractor_class=CustomExtractor)
+    retry_instance = Scraper(extractor_class=CustomExtractor)
     assert retry_instance.extractor_class is CustomExtractor
 
 @pytest.mark.asyncio

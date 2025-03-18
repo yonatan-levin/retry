@@ -1,6 +1,20 @@
-# Retry
+# ScrapeMASTER
 
-**Retry** is an advanced web scraping library built in Python, designed to make data extraction effortless and efficient. It leverages asynchronous programming with `asyncio` and `aiohttp` for high-performance networking and integrates powerful Natural Language Processing (NLP) capabilities using `spaCy` and other NLP libraries.
+**ScrapeMASTER** (formerly Retry) is an advanced web scraping library built in Python, designed to make data extraction effortless and efficient. It leverages asynchronous programming with `asyncio` and `aiohttp` for high-performance networking and integrates powerful Natural Language Processing (NLP) capabilities using `spaCy` and other NLP libraries.
+
+## 🚀 What's New
+
+The library has been completely redesigned and improved with:
+
+- **New Name**: Renamed from "Retry" to "ScrapeMASTER" to avoid conflicts with the standard Python retry library
+- **Enhanced Architecture**: More modular and extensible design
+- **Improved Error Handling**: Comprehensive custom exceptions
+- **Advanced NLP Capabilities**: Dedicated modules for entity extraction, keyword extraction, sentiment analysis, and text summarization
+- **Better Documentation**: Comprehensive docstrings and improved README
+- **Proxy Management**: Advanced proxy rotation and health checking
+- **Rate Limiting**: Domain-specific rate limits with exponential backoff
+- **Caching System**: Flexible caching with TTL support and multiple backends
+- **Authentication**: Support for various authentication methods
 
 ## Table of Contents
 
@@ -25,11 +39,16 @@
 
 - **Asynchronous Networking**: Built on `asyncio` and `aiohttp` for efficient HTTP requests.
 - **Dynamic Extraction Rules**: Use CSS selectors, XPath expressions, and regex patterns to extract data.
-- **Advanced NLP Integration**: Incorporate `spaCy`, `TextBlob`, `Gensim`, and `Transformers` for tasks like NER, sentiment analysis and keyword extraction.
+- **Advanced NLP Integration**: Incorporate `spaCy`, `TextBlob`, and `Transformers` for tasks like NER, sentiment analysis, and keyword extraction.
 - **Flexible Pipeline**: Customize the scraping pipeline with your own fetchers, parsers, extractors, and cleaners.
 - **Data Cleaning and Normalization**: Remove unwanted content, eliminate redundancies, and normalize text using NLP techniques.
 - **Extensible Architecture**: Easily add plugins and extend functionalities to suit your specific needs.
 - **Support for Multiple Content Types**: Handle HTML, JSON, and other content types seamlessly.
+- **Proxy Rotation**: Built-in support for proxy rotation and management to avoid IP bans.
+- **Rate Limiting**: Configurable rate limiting with domain-specific settings and exponential backoff.
+- **Caching**: Flexible caching system with TTL support and multiple backend options.
+- **Authentication**: Support for various authentication methods including Basic, Form, and Token-based authentication.
+- **Error Handling**: Comprehensive error handling with custom exceptions for better debugging.
 
 ## Installation
 
@@ -39,27 +58,25 @@
 
 **Install from PyPI**:
 
-*Note: Replace `retry` with the actual package name once published to PyPI.*
-
 ```bash
-pip install retry
+pip install scrapemaster
 ```
 
-Install from Source:
+**Install from Source**:
 
 ```bash
-git clone https://github.com/yonatan-levin/retry
-cd retry
+git clone https://github.com/yonatan-levin/scrapemaster
+cd scrapemaster
 pip install -e .
 ```
 
-Install Required spaCy Model:
+**Install Required spaCy Model**:
 
 ```bash
 python -m spacy download en_core_web_sm
 ```
 
-In order to fetch with playwright you need to install playwright:
+**Install Playwright (Optional)**:
 
 ```bash
 playwright install
@@ -71,7 +88,7 @@ Here's a quick example to get you started:
 
 ```python
 import asyncio
-from retry import Retry
+from scrapemaster import Scraper
 
 # Define extraction rules
 rules = {
@@ -92,7 +109,7 @@ rules = {
 
 async def main():
     url = 'https://example.com/article'
-    scraper = Retry()
+    scraper = Scraper()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 
@@ -100,8 +117,9 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-# Usage
-Defining Extraction Rules
+## Usage
+
+### Defining Extraction Rules
 
 Extraction rules are dictionaries that define how to extract data from the fetched content. Each rule can specify:
 
@@ -115,19 +133,42 @@ Extraction rules are dictionaries that define how to extract data from the fetch
 - **nlp_task**: The NLP task to perform (e.g., ner, keywords, sentiment, summary).
 - **entity_type**: For NER, specify the entity type (e.g., PERSON, ORG).
 
-Scraping Data
+### Scraping Data
 
-To scrape data, create an instance of Retry and call the scrape method with the URL and extraction rules.
+To scrape data, create an instance of `Scraper` and call the `scrape` method with the URL and extraction rules:
 
 ```python
-scraper = Retry()
+scraper = Scraper()
 data = await scraper.scrape(url, rules)
 ```
-## NLP Capabilities
 
-Retry integrates NLP tasks using spaCy and other libraries.
+For multiple URLs:
 
-- **Named Entity** Recognition (NER): Extract entities like people, organizations, and locations.
+```python
+urls = ['https://example.com/page1', 'https://example.com/page2']
+data = await scraper.scrape_multiple(urls, rules)
+```
+
+For paginated content:
+
+```python
+from scrapemaster.utils.pagination import PaginationHandler
+
+pagination_handler = PaginationHandler(
+    selector='.next-page',
+    selector_type='css',
+    attribute='href',
+    limit=5
+)
+
+data = await scraper.scrape_with_pagination(url, rules, pagination_handler)
+```
+
+### NLP Capabilities
+
+ScrapeMASTER integrates NLP tasks using spaCy and other libraries:
+
+- **Named Entity Recognition (NER)**: Extract entities like people, organizations, and locations.
 - **Keyword Extraction**: Identify important words in the text.
 - **Sentiment Analysis**: Determine the sentiment polarity of the content.
 - **Text Summarization**: Generate summaries of longer texts.
@@ -141,34 +182,56 @@ Example Rule for NER:
     'entity_type': 'PERSON',
 }
 ```
-## Customizing the Pipeline
 
-You can customize the scraping pipeline by modifying the Retry instance's components or pipeline steps.
-
-Custom Fetcher:
+Using the NLP modules directly:
 
 ```python
-from retry.fetcher import BaseFetcher
+from scrapemaster.nlp import EntityExtractor, KeywordExtractor, SentimentAnalyzer, TextSummarizer
 
-class CustomFetcher(BaseFetcher):
-    async def fetch(self, url, retries=3):
-        # Implement custom fetching logic
-        pass
+# Extract entities
+entity_extractor = EntityExtractor()
+entities = entity_extractor.extract_people(text)
 
-scraper = Retry(fetcher=CustomFetcher())
+# Extract keywords
+keyword_extractor = KeywordExtractor()
+keywords = keyword_extractor.extract_keywords_with_scores(text)
+
+# Analyze sentiment
+sentiment_analyzer = SentimentAnalyzer()
+sentiment = sentiment_analyzer.analyze_sentiment(text)
+
+# Summarize text
+text_summarizer = TextSummarizer()
+summary = text_summarizer.summarize(text, ratio=0.2)
 ```
-Modifying the Pipeline:
+
+### Customizing the Pipeline
+
+You can customize the scraping pipeline by modifying the `Scraper` instance's components or pipeline steps:
 
 ```python
-# Remove the cleaning step
-scraper.pipeline.remove(scraper._clean_data)
+# Add a custom pipeline step
+async def custom_step(context):
+    # Process the context
+    print(f"Processing URL: {context['url']}")
+    return context
+
+scraper.add_pipeline_step("custom_step", custom_step, position=2)
+
+# Remove a pipeline step
+scraper.remove_pipeline_step("clean_data")
+
+# Enable/disable a pipeline step
+scraper.enable_pipeline_step("apply_plugins", False)
 ```
-# Examples
-## Example: Extracting Article Data with NLP
+
+## Examples
+
+### Example: Extracting Article Data with NLP
 
 ```python
 import asyncio
-from retry import Retry
+from scrapemaster import Scraper
 
 rules = {
     'title': {'selector': 'h1', 'type': 'css'},
@@ -187,18 +250,19 @@ rules = {
 
 async def main():
     url = 'https://example.com/news/article'
-    scraper = Retry()
+    scraper = Scraper()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 
 if __name__ == '__main__':
     asyncio.run(main())
 ```
-## Example: Scraping JSON Data from an API
+
+### Example: Scraping JSON Data from an API
 
 ```python
 import asyncio
-from retry import Retry
+from scrapemaster import Scraper
 
 rules = {
     'company_name': {'selector': 'companyInfo.companyName', 'type': 'jsonpath'},
@@ -208,86 +272,89 @@ rules = {
 
 async def main():
     url = 'https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json'
-    scraper = Retry()
+    scraper = Scraper()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 
 if __name__ == '__main__':
     asyncio.run(main())
 ```
-# Advanced Usage
-## Custom Fetchers
 
-You can implement custom fetchers to control how content is fetched.
+## Advanced Topics
+
+### Custom Fetchers
+
+You can implement custom fetchers to control how content is fetched:
 
 ```python
-from retry.fetcher import BaseFetcher
+from scrapemaster.core.fetcher import Fetcher
 
-class CustomFetcher(BaseFetcher):
-    async def fetch(self, url, retries=3):
+class CustomFetcher(Fetcher):
+    async def fetch(self, url, retries=3, timeout=10):
         # Custom fetch logic
-        pass
+        # ...
+        return content, content_type
 
-scraper = Retry(fetcher=CustomFetcher())
+scraper = Scraper(fetcher=CustomFetcher())
 ```
-## Plugins
 
-Extend functionality by creating plugins that process data after extraction.
+### Plugins
+
+Extend functionality by creating plugins that process data after extraction:
 
 ```python
 class SentimentPlugin:
     def process(self, data):
-        from textblob import TextBlob
+        from scrapemaster.nlp import SentimentAnalyzer
+        
+        sentiment_analyzer = SentimentAnalyzer()
+        
         if 'content' in data:
-            blob = TextBlob(data['content'])
-            data['sentiment'] = blob.sentiment.polarity
+            data['sentiment'] = sentiment_analyzer.analyze_sentiment(data['content'])
+        
         return data
 
+scraper = Scraper()
 scraper.register_plugin(SentimentPlugin())
 ```
-## Handling Different Content Types
 
-Retry can handle HTML, JSON, and other content types. It automatically detects the content type from the Content-Type header.
+### Handling Different Content Types
 
-Example for JSON Content:
+ScrapeMASTER can handle HTML, JSON, and other content types. It automatically detects the content type from the Content-Type header:
 
-``` python
-rules = {
-    'data_point': {'selector': 'path.to.data', 'type': 'jsonpath'},
+```python
+# HTML content
+html_rules = {
+    'title': {'selector': 'h1', 'type': 'css'},
 }
-``` 
-Contributing
 
-Contributions are welcome! Please follow these steps:
+# JSON content
+json_rules = {
+    'name': {'selector': 'user.name', 'type': 'jsonpath'},
+}
 
-Fork the repository.
-
-Create a new branch:
-
-```bash
-git checkout -b feature/your-feature
+# XML content
+xml_rules = {
+    'title': {'selector': '//title', 'type': 'xpath'},
+}
 ```
-Commit your changes:
 
-```bash
-git commit -am 'Add new feature'
-```
-Push to the branch:
+## Contributing
 
-```bash
-    git push origin feature/your-feature
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-    Open a Pull Request.
-```
-Please ensure that your code adheres to the project's coding standards and includes appropriate tests.
-License
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-This project is licensed under the MIT License. See the LICENSE file for details.
-Contact
+## License
 
-For questions or suggestions, feel free to reach out:
+This project is licensed under the MIT License - see the LICENSE file for details.
 
- 
-    GitHub: https://github.com/yonatan-levin/retry
+## Contact
 
-Thank you for using Retry! We hope it makes your web scraping and data extraction tasks easier and more efficient.
+Yonatan Levin - levinjonatan80@gmail.com
+
+Project Link: [https://github.com/yonatan-levin/scrapemaster](https://github.com/yonatan-levin/scrapemaster)

@@ -3,11 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "retry"
+name = "scrapemaster"
 version = "0.1.0"
 description = "A dynamic web scraping library with advanced NLP capabilities."
 readme = "README.md"
-readme-content-type = "text/markdown"
 requires-python = ">=3.7"
 license = { file = "LICENSE" }
 authors = [
@@ -27,24 +26,24 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 keywords = ["web scraping", "nlp", "spaCy", "asyncio", "aiohttp"]
+dependencies = [
+    "aiohttp>=3.7.4",
+    "beautifulsoup4>=4.9.3",
+    "lxml>=4.6.2",
+    "spacy>=3.0.0",
+    "textblob>=0.15.3",
+    "transformers>=4.2.0",
+    "pandas>=1.1.5",
+    "playwright>=1.48.0"
+]
 
 [project.urls]
 "Documentation" = "https://github.com/yonatan-levin/retry#readme"
 "Source" = "https://github.com/yonatan-levin/retry"
 "Tracker" = "https://github.com/yonatan-levin/retry/issues"
 
-[project.dependencies]
-aiohttp = ">=3.7.4"
-beautifulsoup4 = ">=4.9.3"
-lxml = ">=4.6.2"
-spacy = ">=3.0.0"
-textblob = ">=0.15.3"
-transformers = ">=4.2.0"
-pandas = ">=1.1.5"
-playwright = ">=1.48.0" 
-
 [tool.setuptools.packages.find]
-where = ["retry"]
+where = ["scrapemaster"]
 exclude = ["tests*", "examples*"]
 
 [project.optional-dependencies]

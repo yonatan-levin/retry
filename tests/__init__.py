@@ -1,3 +1,7 @@
+"""
+Test package for the retry library.
+"""
+
 import pytest
 
 

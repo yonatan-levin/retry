@@ -6,7 +6,7 @@ from textblob import TextBlob
 from spacy.matcher import Matcher
 from retry.models.rules import Rules, Rule
 from retry.parser import ContentParser
-from .logger import getLogger
+from .logger import getLogger   
 
 logger = getLogger(__name__)
 
