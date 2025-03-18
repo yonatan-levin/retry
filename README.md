@@ -1,12 +1,11 @@
-# ScrapeMASTER
+# retry
 
-**ScrapeMASTER** (formerly Retry) is an advanced web scraping library built in Python, designed to make data extraction effortless and efficient. It leverages asynchronous programming with `asyncio` and `aiohttp` for high-performance networking and integrates powerful Natural Language Processing (NLP) capabilities using `spaCy` and other NLP libraries.
+**retry** is an advanced web scraping library built in Python, designed to make data extraction effortless and efficient. It leverages asynchronous programming with `asyncio` and `aiohttp` for high-performance networking and integrates powerful Natural Language Processing (NLP) capabilities using `spaCy` and other NLP libraries.
 
 ## 🚀 What's New
 
 The library has been completely redesigned and improved with:
 
-- **New Name**: Renamed from "Retry" to "ScrapeMASTER" to avoid conflicts with the standard Python retry library
 - **Enhanced Architecture**: More modular and extensible design
 - **Improved Error Handling**: Comprehensive custom exceptions
 - **Advanced NLP Capabilities**: Dedicated modules for entity extraction, keyword extraction, sentiment analysis, and text summarization
@@ -59,14 +58,14 @@ The library has been completely redesigned and improved with:
 **Install from PyPI**:
 
 ```bash
-pip install scrapemaster
+pip install retry-scraper
 ```
 
 **Install from Source**:
 
 ```bash
-git clone https://github.com/yonatan-levin/scrapemaster
-cd scrapemaster
+git clone https://github.com/yonatan-levin/retry
+cd retry
 pip install -e .
 ```
 
@@ -88,7 +87,7 @@ Here's a quick example to get you started:
 
 ```python
 import asyncio
-from scrapemaster import Scraper
+from retry import RetrySC
 
 # Define extraction rules
 rules = {
@@ -109,7 +108,7 @@ rules = {
 
 async def main():
     url = 'https://example.com/article'
-    scraper = Scraper()
+    scraper = RetrySC()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 
@@ -135,10 +134,10 @@ Extraction rules are dictionaries that define how to extract data from the fetch
 
 ### Scraping Data
 
-To scrape data, create an instance of `Scraper` and call the `scrape` method with the URL and extraction rules:
+To scrape data, create an instance of `RetrySC` and call the `scrape` method with the URL and extraction rules:
 
 ```python
-scraper = Scraper()
+scraper = RetrySC()
 data = await scraper.scrape(url, rules)
 ```
 
@@ -152,7 +151,7 @@ data = await scraper.scrape_multiple(urls, rules)
 For paginated content:
 
 ```python
-from scrapemaster.utils.pagination import PaginationHandler
+from retry.utils.pagination import PaginationHandler
 
 pagination_handler = PaginationHandler(
     selector='.next-page',
@@ -166,7 +165,7 @@ data = await scraper.scrape_with_pagination(url, rules, pagination_handler)
 
 ### NLP Capabilities
 
-ScrapeMASTER integrates NLP tasks using spaCy and other libraries:
+retry integrates NLP tasks using spaCy and other libraries:
 
 - **Named Entity Recognition (NER)**: Extract entities like people, organizations, and locations.
 - **Keyword Extraction**: Identify important words in the text.
@@ -186,7 +185,7 @@ Example Rule for NER:
 Using the NLP modules directly:
 
 ```python
-from scrapemaster.nlp import EntityExtractor, KeywordExtractor, SentimentAnalyzer, TextSummarizer
+from retry.nlp import EntityExtractor, KeywordExtractor, SentimentAnalyzer, TextSummarizer
 
 # Extract entities
 entity_extractor = EntityExtractor()
@@ -207,7 +206,7 @@ summary = text_summarizer.summarize(text, ratio=0.2)
 
 ### Customizing the Pipeline
 
-You can customize the scraping pipeline by modifying the `Scraper` instance's components or pipeline steps:
+You can customize the scraping pipeline by modifying the `RetrySC` instance's components or pipeline steps:
 
 ```python
 # Add a custom pipeline step
@@ -231,7 +230,7 @@ scraper.enable_pipeline_step("apply_plugins", False)
 
 ```python
 import asyncio
-from scrapemaster import Scraper
+from retry import RetrySC
 
 rules = {
     'title': {'selector': 'h1', 'type': 'css'},
@@ -250,7 +249,7 @@ rules = {
 
 async def main():
     url = 'https://example.com/news/article'
-    scraper = Scraper()
+    scraper = RetrySC()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 
@@ -262,7 +261,7 @@ if __name__ == '__main__':
 
 ```python
 import asyncio
-from scrapemaster import Scraper
+from retry import RetrySC
 
 rules = {
     'company_name': {'selector': 'companyInfo.companyName', 'type': 'jsonpath'},
@@ -272,7 +271,7 @@ rules = {
 
 async def main():
     url = 'https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json'
-    scraper = Scraper()
+    scraper = RetrySC()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 
@@ -287,7 +286,7 @@ if __name__ == '__main__':
 You can implement custom fetchers to control how content is fetched:
 
 ```python
-from scrapemaster.core.fetcher import Fetcher
+from retry.core.fetcher import Fetcher
 
 class CustomFetcher(Fetcher):
     async def fetch(self, url, retries=3, timeout=10):
@@ -295,7 +294,7 @@ class CustomFetcher(Fetcher):
         # ...
         return content, content_type
 
-scraper = Scraper(fetcher=CustomFetcher())
+scraper = RetrySC(fetcher=CustomFetcher())
 ```
 
 ### Plugins
@@ -305,7 +304,7 @@ Extend functionality by creating plugins that process data after extraction:
 ```python
 class SentimentPlugin:
     def process(self, data):
-        from scrapemaster.nlp import SentimentAnalyzer
+        from retry.nlp import SentimentAnalyzer
         
         sentiment_analyzer = SentimentAnalyzer()
         
@@ -314,13 +313,13 @@ class SentimentPlugin:
         
         return data
 
-scraper = Scraper()
+scraper = RetrySC()
 scraper.register_plugin(SentimentPlugin())
 ```
 
 ### Handling Different Content Types
 
-ScrapeMASTER can handle HTML, JSON, and other content types. It automatically detects the content type from the Content-Type header:
+retry can handle HTML, JSON, and other content types. It automatically detects the content type from the Content-Type header:
 
 ```python
 # HTML content
@@ -357,4 +356,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Yonatan Levin - levinjonatan80@gmail.com
 
-Project Link: [https://github.com/yonatan-levin/scrapemaster](https://github.com/yonatan-levin/scrapemaster)
+Project Link: [https://github.com/yonatan-levin/retry](https://github.com/yonatan-levin/retry)

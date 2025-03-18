@@ -1,5 +1,5 @@
 import asyncio
-from retry import Retry
+from retry import RetrySC
 
 # Define extraction rules
 rules = {
@@ -28,7 +28,7 @@ rules = {
 
 async def main():
     url = 'https://books.toscrape.com/catalogue/sharp-objects_997/index.html'
-    scraper = Retry()
+    scraper = RetrySC()
     data = await scraper.scrape(url, rules)
     print(scraper.output(data, format_type='json'))
 

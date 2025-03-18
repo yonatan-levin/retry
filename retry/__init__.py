@@ -8,7 +8,7 @@ including request handling, content parsing, data extraction, and more.
 __version__ = "0.2.0"
 
 # Core components
-from retry.retry import Retry as Scraper  # Import the main class from retry.py
+from retry.retry import Retry as RetrySC  # Import the main class from retry.py
 
 # Models
 from retry.models.rules import Rules, Rule
@@ -49,7 +49,7 @@ from retry.utils.logger import get_logger, setup_file_logging, set_log_level
 
 __all__ = [
     # Core
-    "Scraper",
+    "RetrySC",
     
     # Models
     "Rules",

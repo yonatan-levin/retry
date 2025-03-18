@@ -41,7 +41,7 @@ Expected Output:
 }
 """
 import asyncio
-from retry import Retry
+from retry import RetrySC
 
 rules = {
     'books': {
@@ -67,10 +67,10 @@ rules = {
 #docstring the expected output
 
 async def main():
-    retry = Retry()
+    scraper = RetrySC()
     url = 'https://books.toscrape.com/'
-    data = await retry.scrape(url, rules)
-    output = retry.output(data, format_type='json')
+    data = await scraper.scrape(url, rules)
+    output = scraper.output(data, format_type='json')
     print(output)
 
 if __name__ == '__main__':

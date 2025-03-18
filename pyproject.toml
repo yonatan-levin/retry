@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scrapemaster"
+name = "retry-scraper"
 version = "0.1.0"
 description = "A dynamic web scraping library with advanced NLP capabilities."
 readme = "README.md"
@@ -43,7 +43,7 @@ dependencies = [
 "Tracker" = "https://github.com/yonatan-levin/retry/issues"
 
 [tool.setuptools.packages.find]
-where = ["scrapemaster"]
+where = ["retry"]
 exclude = ["tests*", "examples*"]
 
 [project.optional-dependencies]

@@ -1,5 +1,5 @@
 import asyncio
-from retry import Retry
+from retry import RetrySC
 from retry.fetcher import BaseFetcher
 
 rules = {
@@ -29,7 +29,7 @@ class CustomFetcher(BaseFetcher):
 
 async def main():
     # Initialize the scraper with the custom fetcher
-    scraper = Retry(fetcher=CustomFetcher())
+    scraper = RetrySC(fetcher=CustomFetcher())
 
     # Scrape using the custom fetch method
     data = await scraper.scrape('https://google.com', rules)

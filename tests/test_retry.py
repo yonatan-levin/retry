@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
-from retry import Scraper
+from retry import RetrySC
 from retry.fetcher import Fetcher
 from retry.parser import ContentParser
 from retry.extractor import ContentExtractor
@@ -37,7 +37,7 @@ def sample_rules():
 
 @pytest.fixture
 def retry_instance():
-    return Scraper()
+    return RetrySC()
 
 @pytest.mark.asyncio
 async def test_scrape_async(retry_instance, sample_html_content, sample_rules):
@@ -178,7 +178,7 @@ async def test_cache_usage():
     fetcher = Fetcher(session_manager=mock_session_manager, cache=cache)
     # Also mock the rate_limiter
     fetcher.rate_limiter.wait = AsyncMock(return_value=None)
-    retry_instance = Scraper(fetcher=fetcher)
+    retry_instance = RetrySC(fetcher=fetcher)
 
     url = 'http://example.com'
 
@@ -244,27 +244,27 @@ async def test_cleaner_usage(retry_instance, sample_html_content, sample_rules):
 def test_fetcher_initialization():
     # Test that the fetcher is initialized with the cache
     cache = SimpleCache()
-    retry_instance = Scraper(cache=cache)
+    retry_instance = RetrySC(cache=cache)
     assert retry_instance.fetcher.cache is cache
 
 def test_formatter_initialization():
     # Test that the formatter is initialized properly
     formatter = OutputFormatter()
-    retry_instance = Scraper(formatter=formatter)
+    retry_instance = RetrySC(formatter=formatter)
     assert retry_instance.formatter is formatter
 
 def test_parser_class_initialization():
     class CustomParser(ContentParser):
         pass
 
-    retry_instance = Scraper(parser_class=CustomParser)
+    retry_instance = RetrySC(parser_class=CustomParser)
     assert retry_instance.parser_class is CustomParser
 
 def test_extractor_class_initialization():
     class CustomExtractor(ContentExtractor):
         pass
 
-    retry_instance = Scraper(extractor_class=CustomExtractor)
+    retry_instance = RetrySC(extractor_class=CustomExtractor)
     assert retry_instance.extractor_class is CustomExtractor
 
 @pytest.mark.asyncio
