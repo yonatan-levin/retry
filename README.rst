@@ -11,7 +11,6 @@ The library has been completely redesigned and improved with:
 * **Enhanced Architecture**: More modular and extensible design
 * **Improved Error Handling**: Comprehensive custom exceptions
 * **Advanced NLP Capabilities**: Dedicated modules for entity extraction, keyword extraction, sentiment analysis, and text summarization
-* **Better Documentation**: Comprehensive docstrings and improved README
 * **Proxy Management**: Advanced proxy rotation and health checking
 * **Rate Limiting**: Domain-specific rate limits with exponential backoff
 * **Caching System**: Flexible caching with TTL support and multiple backends
@@ -20,7 +19,6 @@ The library has been completely redesigned and improved with:
 Features
 --------
 
-* **Asynchronous Networking**: Built on ``asyncio`` and ``aiohttp`` for efficient HTTP requests.
 * **Dynamic Extraction Rules**: Use CSS selectors, XPath expressions, and regex patterns to extract data.
 * **Advanced NLP Integration**: Incorporate ``spaCy``, ``TextBlob``, and ``Transformers`` for tasks like NER, sentiment analysis, and keyword extraction.
 * **Flexible Pipeline**: Customize the scraping pipeline with your own fetchers, parsers, extractors, and cleaners.

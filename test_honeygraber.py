@@ -28,9 +28,10 @@ def main():
             print(f"  ✗ {component}")
     
     # Check if NLP components are available
-    print("\nNLP components available:", "Yes" if honeygrabber.NLP_AVAILABLE else "No")
+    nlp_flag = hasattr(honeygrabber, "NLP_AVAILABLE") and honeygrabber.NLP_AVAILABLE
+    print("\nNLP components available:", "Yes" if nlp_flag else "No")
     
-    if honeygrabber.NLP_AVAILABLE:
+    if nlp_flag:
         nlp_components = [
             "EntityExtractor",
             "KeywordExtractor",
