@@ -15,8 +15,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 # Try to import the modules directly
 try:
-    from retry.utils.exceptions import AuthenticationError
-    from retry.utils.authentication import (
+    from honeygrabber.utils.exceptions import AuthenticationError
+    from honeygrabber.utils.authentication import (
         BaseAuth, BasicAuth, TokenAuth, FormAuth, OAuth2Auth, AuthManager
     )
 except ImportError:

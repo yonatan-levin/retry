@@ -1,8 +1,8 @@
 from pydantic import ValidationError
 import pytest
 from unittest.mock import MagicMock, patch
-from retry.parser import ContentParser
-from retry.extractor import ContentExtractor
+from honeygrabber.parser import ContentParser
+from honeygrabber.extractor import ContentExtractor
 import spacy
 
 
@@ -53,7 +53,7 @@ def sample_json_content():
 
 @pytest.fixture
 def logger():
-    with patch.object('retry.extractor.logger', 'error', MagicMock()) as mock_logger:
+    with patch.object('honeygrabber.extractor.logger', 'error', MagicMock()) as mock_logger:
         yield mock_logger
 
 
@@ -270,7 +270,7 @@ def test_extract_invalid_selector_type(parser):
         }
     }
     extractor = ContentExtractor(parser, rules)
-    with patch('retry.extractor.logger') as mock_logger:
+    with patch('honeygrabber.extractor.logger') as mock_logger:
         value = extractor.extract()
 
         # Assert that the value is None due to the exception
@@ -441,7 +441,7 @@ def test_extract_with_processor_exception(parser):
 
     extractor = ContentExtractor(parser, rules)
 
-    with patch('retry.extractor.logger') as mock_logger:
+    with patch('honeygrabber.extractor.logger') as mock_logger:
 
         data = extractor.extract()
         # Assert that the value is None due to the exception

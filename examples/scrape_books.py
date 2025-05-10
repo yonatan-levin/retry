@@ -1,7 +1,7 @@
 import asyncio
 import time
-from retry import RetrySC
-from retry.logger import getLogger
+from honeygrabber import HoneyGrabberSC
+from honeygrabber.logger import getLogger
 
 logger = getLogger(__name__)
 
@@ -42,7 +42,7 @@ rules = {
 }
 
 
-async def scrape_book_details(scraper: RetrySC, book):
+async def scrape_book_details(scraper: HoneyGrabberSC, book):
     detail_urls = book['detail_url']
     detail_rules = {
         "books_detail": {
@@ -74,7 +74,7 @@ def extend_book_list(source_data: dict, target_data: dict, page: str) -> dict:
     return target_data
 
 async def main():
-    scraper = RetrySC()
+    scraper = HoneyGrabberSC()
     all_books = {}
     total_pages = 2  # Total number of pages
     start_time = time.time()

@@ -1,14 +1,15 @@
 import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
-from retry import RetrySC
-from retry.fetcher import Fetcher
-from retry.parser import ContentParser
-from retry.extractor import ContentExtractor
-from retry.cleaner import Cleaner
-from retry.formatter import OutputFormatter
-from retry.utils.cache import SimpleCache
-from retry.utils.session_manager import SessionManager
+from honeygrabber import HoneyGrabberSC
+from honeygrabber.fetcher import Fetcher
+from honeygrabber.parser import ContentParser
+from honeygrabber.extractor import ContentExtractor
+from honeygrabber.cleaner import Cleaner
+from honeygrabber.formatter import OutputFormatter
+from honeygrabber.utils.cache import SimpleCache
+from honeygrabber.utils.session_manager import SessionManager
+from honeygrabber.config.fetcher_config import FetcherConfig
 
 @pytest.fixture
 def sample_html_content():
@@ -37,7 +38,7 @@ def sample_rules():
 
 @pytest.fixture
 def retry_instance():
-    return RetrySC()
+    return HoneyGrabberSC()
 
 @pytest.mark.asyncio
 async def test_scrape_async(retry_instance, sample_html_content, sample_rules):
@@ -175,10 +176,11 @@ async def test_cache_usage():
     
     # Create a mock session_manager
     mock_session_manager = MagicMock()
-    fetcher = Fetcher(session_manager=mock_session_manager, cache=cache)
+    fetcher_config = FetcherConfig(session_manager=mock_session_manager, cache=cache)
+    fetcher = Fetcher(fetcher_config)
     # Also mock the rate_limiter
     fetcher.rate_limiter.wait = AsyncMock(return_value=None)
-    retry_instance = RetrySC(fetcher=fetcher)
+    retry_instance = HoneyGrabberSC(fetcher=fetcher)
 
     url = 'http://example.com'
 
@@ -242,29 +244,34 @@ async def test_cleaner_usage(retry_instance, sample_html_content, sample_rules):
         assert data == {'title': 'hello world'}
 
 def test_fetcher_initialization():
-    # Test that the fetcher is initialized with the cache
+    # Test that the fetcher is initialized with the cache and config
     cache = SimpleCache()
-    retry_instance = RetrySC(cache=cache)
+    fetcher_config = FetcherConfig(retries=5, timeout=15, rate_limit=2, cache=cache)
+    retry_instance = HoneyGrabberSC(fetcher_config=fetcher_config)
     assert retry_instance.fetcher.cache is cache
+    assert retry_instance.fetcher_config is fetcher_config
+    assert retry_instance.fetcher_config.retries == 5
+    assert retry_instance.fetcher_config.timeout == 15
+    assert retry_instance.fetcher_config.rate_limit == 2
 
 def test_formatter_initialization():
     # Test that the formatter is initialized properly
     formatter = OutputFormatter()
-    retry_instance = RetrySC(formatter=formatter)
+    retry_instance = HoneyGrabberSC(formatter=formatter)
     assert retry_instance.formatter is formatter
 
 def test_parser_class_initialization():
     class CustomParser(ContentParser):
         pass
 
-    retry_instance = RetrySC(parser_class=CustomParser)
+    retry_instance = HoneyGrabberSC(parser_class=CustomParser)
     assert retry_instance.parser_class is CustomParser
 
 def test_extractor_class_initialization():
     class CustomExtractor(ContentExtractor):
         pass
 
-    retry_instance = RetrySC(extractor_class=CustomExtractor)
+    retry_instance = HoneyGrabberSC(extractor_class=CustomExtractor)
     assert retry_instance.extractor_class is CustomExtractor
 
 @pytest.mark.asyncio

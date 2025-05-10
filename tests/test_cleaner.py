@@ -1,6 +1,6 @@
 import pytest
-from retry.cleaner import Cleaner
-from retry.constants import CUSTOM_INFIXES
+from honeygrabber.cleaner import Cleaner
+from honeygrabber.constants import CUSTOM_INFIXES
 import spacy
 from spacy.util import compile_infix_regex
 

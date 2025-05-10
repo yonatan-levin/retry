@@ -3,11 +3,11 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest_asyncio
 from yarl import URL
-from retry.config.fetcher_config import FetcherConfig
-from retry.fetcher import Fetcher
-from retry.utils.authentication import BasicAuth, TokenAuth, AuthManager
+from honeygrabber.config.fetcher_config import FetcherConfig
+from honeygrabber.fetcher import Fetcher
+from honeygrabber.utils.authentication import BasicAuth, TokenAuth, AuthManager
 from aioresponses import CallbackResult, aioresponses
-from retry.utils.cache import SimpleCache
+from honeygrabber.utils.cache import SimpleCache
 
 @pytest.fixture()
 def sample_url():
@@ -47,12 +47,13 @@ def mock_authentication():
 
 @pytest_asyncio.fixture()
 async def url_fetcher(mock_cache, mock_authentication):
-    fetcher = Fetcher(
+    fetcher_config = FetcherConfig(
         proxies=['http://proxy1.com'],
         user_agents=['UserAgent1'],
         cache=mock_cache,
         authentication=mock_authentication
     )
+    fetcher = Fetcher(fetcher_config=fetcher_config)
     yield fetcher
     await fetcher.session_manager.close()
 
@@ -212,7 +213,7 @@ async def test_fetch_with_authentication_token(url_fetcher,mock_authentication, 
 @pytest.mark.asyncio
 async def test_fetch_with_playwright_success(url_fetcher, sample_url, sample_content):
     
-    with patch('retry.fetcher.async_playwright') as mock_async_playwright:
+    with patch('honeygrabber.fetcher.async_playwright') as mock_async_playwright:
         # Set up the async context manager for async_playwright
         mock_playwright_instance = AsyncMock()
         mock_async_playwright.return_value.__aenter__.return_value = mock_playwright_instance
@@ -252,7 +253,7 @@ async def test_fetch_with_playwright_success(url_fetcher, sample_url, sample_con
 @pytest.mark.asyncio
 async def test_fetch_with_playwright_error(url_fetcher, sample_url):
     # Mock async_playwright to raise an exception
-    with patch('retry.fetcher.async_playwright') as mock_async_playwright:
+    with patch('honeygrabber.fetcher.async_playwright') as mock_async_playwright:
         mock_async_playwright.return_value.__aenter__.side_effect = Exception("Playwright error")
 
         # Attempt to call the method and expect it to handle retries and eventually raise the exception
@@ -290,7 +291,7 @@ async def test_fetch_with_playwright_retry(url_fetcher, sample_url, sample_conte
             mock_browser.close.return_value = AsyncMock()
             return mock_playwright_instance
 
-    with patch('retry.fetcher.async_playwright') as mock_async_playwright:
+    with patch('honeygrabber.fetcher.async_playwright') as mock_async_playwright:
             mock_async_playwright.return_value.__aenter__.side_effect = mock_async_playwright_enter
             
             
@@ -398,7 +399,7 @@ async def test_fetch_multiple_with_retry(url_fetcher, sample_url, sample_content
 async def test_fetch_with_playwright_multiple_success(url_fetcher, sample_url, sample_content):
     urls = [f"{sample_url}/page{i}" for i in range(1, 4)]
 
-    with patch('retry.fetcher.async_playwright') as mock_async_playwright:
+    with patch('honeygrabber.fetcher.async_playwright') as mock_async_playwright:
             # Set up the async context manager for async_playwright
             mock_playwright_instance = AsyncMock()
             mock_async_playwright.return_value.__aenter__.return_value = mock_playwright_instance
@@ -429,8 +430,8 @@ async def test_fetch_with_playwright_multiple_success(url_fetcher, sample_url, s
             for content, content_type in results:
                 assert content == sample_content
                 assert content_type == 'text/html'
-
-            expected_proxy_settings = {'server': 'http://proxy1.com'}
+            # Get the proxy from the url_fetcher that was configured in the fixture
+            expected_proxy_settings = {'server': url_fetcher.proxy}
 
             # Verify that the methods were called with the correct arguments
             mock_playwright_instance.chromium.launch.assert_called_with(proxy=expected_proxy_settings)

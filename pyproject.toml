@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "retry-scraper"
-version = "0.1.0"
+name = "honeygrabber"
+version = "0.2.0"
 description = "A dynamic web scraping library with advanced NLP capabilities."
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.7"
 license = { file = "LICENSE" }
 authors = [
@@ -38,18 +38,23 @@ dependencies = [
 ]
 
 [project.urls]
-"Documentation" = "https://github.com/yonatan-levin/retry#readme"
-"Source" = "https://github.com/yonatan-levin/retry"
-"Tracker" = "https://github.com/yonatan-levin/retry/issues"
+"Documentation" = "https://github.com/yonatan-levin/honeygraber#readme"
+"Source" = "https://github.com/yonatan-levin/honeygraber"
+"Tracker" = "https://github.com/yonatan-levin/honeygraber/issues"
 
 [tool.setuptools.packages.find]
-where = ["retry"]
+where = ["."]
 exclude = ["tests*", "examples*"]
 
 [project.optional-dependencies]
 nlp = ["spacy", "textblob", "transformers", "pytest-asyncio"]
+dev = ["pytest>=7.0.0", "pytest-asyncio>=0.18.0", "black>=22.0.0", "flake8>=4.0.0", "twine>=4.0.0", "build>=0.8.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.black]
+line-length = 100
+target-version = ["py37", "py38", "py39", "py310"]

@@ -1,6 +1,6 @@
-# retry
+# HoneyGraber
 
-**retry** is an advanced web scraping library built in Python, designed to make data extraction effortless and efficient. It leverages asynchronous programming with `asyncio` and `aiohttp` for high-performance networking and integrates powerful Natural Language Processing (NLP) capabilities using `spaCy` and other NLP libraries.
+**HoneyGraber** is an advanced web scraping library built in Python, designed to make data extraction effortless and efficient. Like the tenacious honey badger, it fearlessly extracts data from any source with determination and precision. It leverages asynchronous programming with `asyncio` and `aiohttp` for high-performance networking and integrates powerful Natural Language Processing (NLP) capabilities using `spaCy` and other NLP libraries.
 
 ## 🚀 What's New
 
@@ -51,6 +51,8 @@ The library has been completely redesigned and improved with:
 
 ## Installation
 
+> **Name Change Notice**: This library was previously published as `retry-scraper`. It has been renamed to `honeygraber` to avoid conflicts with Python's standard retry libraries. For migration assistance, please see our [Migration Guide](migration_guide.md).
+
 **Requirements**:
 
 - Python 3.7 or higher
@@ -58,14 +60,14 @@ The library has been completely redesigned and improved with:
 **Install from PyPI**:
 
 ```bash
-pip install retry-scraper
+pip install honeygraber
 ```
 
 **Install from Source**:
 
 ```bash
-git clone https://github.com/yonatan-levin/retry
-cd retry
+git clone https://github.com/yonatan-levin/honeygraber
+cd honeygraber
 pip install -e .
 ```
 
@@ -87,7 +89,7 @@ Here's a quick example to get you started:
 
 ```python
 import asyncio
-from retry import RetrySC
+from honeygraber import RetrySC
 
 # Define extraction rules
 rules = {
@@ -151,7 +153,7 @@ data = await scraper.scrape_multiple(urls, rules)
 For paginated content:
 
 ```python
-from retry.utils.pagination import PaginationHandler
+from honeygraber.utils.pagination import PaginationHandler
 
 pagination_handler = PaginationHandler(
     selector='.next-page',
@@ -165,7 +167,7 @@ data = await scraper.scrape_with_pagination(url, rules, pagination_handler)
 
 ### NLP Capabilities
 
-retry integrates NLP tasks using spaCy and other libraries:
+HoneyGraber integrates NLP tasks using spaCy and other libraries:
 
 - **Named Entity Recognition (NER)**: Extract entities like people, organizations, and locations.
 - **Keyword Extraction**: Identify important words in the text.
@@ -185,7 +187,7 @@ Example Rule for NER:
 Using the NLP modules directly:
 
 ```python
-from retry.nlp import EntityExtractor, KeywordExtractor, SentimentAnalyzer, TextSummarizer
+from honeygraber.nlp import EntityExtractor, KeywordExtractor, SentimentAnalyzer, TextSummarizer
 
 # Extract entities
 entity_extractor = EntityExtractor()
@@ -230,7 +232,7 @@ scraper.enable_pipeline_step("apply_plugins", False)
 
 ```python
 import asyncio
-from retry import RetrySC
+from honeygraber import RetrySC
 
 rules = {
     'title': {'selector': 'h1', 'type': 'css'},
@@ -261,7 +263,7 @@ if __name__ == '__main__':
 
 ```python
 import asyncio
-from retry import RetrySC
+from honeygraber import RetrySC
 
 rules = {
     'company_name': {'selector': 'companyInfo.companyName', 'type': 'jsonpath'},
@@ -286,7 +288,7 @@ if __name__ == '__main__':
 You can implement custom fetchers to control how content is fetched:
 
 ```python
-from retry.core.fetcher import Fetcher
+from honeygraber.core.fetcher import Fetcher
 
 class CustomFetcher(Fetcher):
     async def fetch(self, url, retries=3, timeout=10):
@@ -304,7 +306,7 @@ Extend functionality by creating plugins that process data after extraction:
 ```python
 class SentimentPlugin:
     def process(self, data):
-        from retry.nlp import SentimentAnalyzer
+        from honeygraber.nlp import SentimentAnalyzer
         
         sentiment_analyzer = SentimentAnalyzer()
         
@@ -319,7 +321,7 @@ scraper.register_plugin(SentimentPlugin())
 
 ### Handling Different Content Types
 
-retry can handle HTML, JSON, and other content types. It automatically detects the content type from the Content-Type header:
+HoneyGraber can handle HTML, JSON, and other content types. It automatically detects the content type from the Content-Type header:
 
 ```python
 # HTML content
@@ -356,4 +358,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Yonatan Levin - levinjonatan80@gmail.com
 
-Project Link: [https://github.com/yonatan-levin/retry](https://github.com/yonatan-levin/retry)
+Project Link: [https://github.com/yonatan-levin/honeygraber](https://github.com/yonatan-levin/honeygraber)

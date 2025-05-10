@@ -1,6 +1,6 @@
 import asyncio
-from retry import RetrySC
-from retry.fetcher import BaseFetcher
+from honeygrabber import HoneyGrabberSC
+from honeygrabber.fetcher import BaseFetcher
 
 rules = {
     "title": {
@@ -29,7 +29,7 @@ class CustomFetcher(BaseFetcher):
 
 async def main():
     # Initialize the scraper with the custom fetcher
-    scraper = RetrySC(fetcher=CustomFetcher())
+    scraper = HoneyGrabberSC(fetcher=CustomFetcher())
 
     # Scrape using the custom fetch method
     data = await scraper.scrape('https://google.com', rules)

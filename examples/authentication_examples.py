@@ -12,7 +12,7 @@ import asyncio
 # Add parent directory to path to import retry
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from retry.utils.authentication import (
+from honeygrabber.utils.authentication import (
     BasicAuth, TokenAuth, FormAuth, OAuth2Auth, AuthManager
 )
 

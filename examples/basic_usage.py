@@ -41,7 +41,7 @@ Expected Output:
 }
 """
 import asyncio
-from retry import RetrySC
+from honeygrabber import HoneyGrabberSC
 
 rules = {
     'books': {
@@ -67,7 +67,7 @@ rules = {
 #docstring the expected output
 
 async def main():
-    scraper = RetrySC()
+    scraper = HoneyGrabberSC()
     url = 'https://books.toscrape.com/'
     data = await scraper.scrape(url, rules)
     output = scraper.output(data, format_type='json')

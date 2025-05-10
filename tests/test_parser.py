@@ -1,7 +1,7 @@
 import pytest
 from bs4 import BeautifulSoup
 import json
-from retry.parser import ContentParser
+from honeygrabber.parser import ContentParser
 
 @pytest.fixture
 def sample_json_content():
